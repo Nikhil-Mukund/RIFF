@@ -4,7 +4,7 @@
 
 - Compatibility: MATLAB R2020b+
 
-- To launch the application, open RIFF.mlapp
+- To launch the application, open **RIFF.mlapp**
 
 - For commandline use, checkout **fitTF.m**
 
