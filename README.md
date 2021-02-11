@@ -1,6 +1,6 @@
 # RIFF: Robust IIR Fitting & Filtering
 
-- Description: Generate robust IIR filter models for the measured transfer functions.
+- Description: Generate robust IIR filter models to match the measured transfer functions.
 
 - Compatibility: MATLAB R2020b+
 
