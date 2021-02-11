@@ -4,7 +4,7 @@ Description: Generate robust IIR filter models for the measured transfer functio
 
 Compatibility: MATLAB R2020b+
 
-## Fit a textfile
+## Fit a text-file
 ![Alt text](RIFF-tutorial-1.gif)
 
 ## Fit workspace variables 
