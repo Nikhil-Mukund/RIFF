@@ -4,17 +4,19 @@
 
 - Developed to aid 
 
-        - the design of control & calibration filters at gravitational wave (GW) observatories.
-
-        - time domain subtraction of the noise sources that linearly couple to the GW strain data.
+        - Design of control & calibration filters at gravitational wave (GW) observatories.
+        - Design of feedforward & feedback filters for platform stabilization & seismic noise isolation.
+        - Time domain subtraction of the noise sources that linearly couple to the GW strain data.
 
 - Input data format
 
-      - Text-files (.txt,.csv) Valid formats: {f a b}, {w a b}, {f a ib}, {w a ib}, {f a+ib}, {w a+ib}
+      - Text-files (.txt,.csv) 
+                  - Valid formats: {f a b}, {w a b}, {f a ib}, {w a ib}, {f a+ib}, {w a+ib}
       - Workspace Variables: 
-          - {Frequency,TransferFunction}
-          - {Frequency Response Data (FRD) Model}
-      - HP-Agilent-Keysight Spectrum Analyzer Measurements {SDF .DAT files}
+                  - {Frequency,TransferFunction}
+                  - {Frequency Response Data (FRD) Model}
+      - HP-Agilent-Keysight Spectrum Analyzer Measurements
+                 - {SDF .DAT files}
 
 - To launch the application, open **RIFF.mlapp**
 
