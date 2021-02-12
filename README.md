@@ -2,11 +2,17 @@
 
 - Description: Generate robust IIR filter models to match the measured transfer functions.
 
-- Compatibility: MATLAB R2020b+
+- Developed to aid the design of control & calibration filters at gravitational wave (GW) observatories.
+
+- Useful for time domain subtraction of the noise sources that linearly couple to the GW strain data.
+
+- Input Data: Text-files/Workspace Variables:{F,TF},{FRD Models}/ HP-Agilent-Keysight Spectrum Analyzer Measurements
 
 - To launch the application, open **RIFF.mlapp**
 
 - For command-line use, checkout **fitTF.m**
+
+- Compatibility: MATLAB R2020b+
 
 ## Fit a text-file
 ![Alt text](/tutorials/RIFF-tutorial-1.gif)
