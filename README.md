@@ -48,7 +48,7 @@
                    - Goodness of fit (FIT_RESULT.gof)
                    - Full covariance matrix. (FIT_RESULT.ZPK.parameterCovarianceMatrix)
                    - Results from the intermediate stages (FIT_RESULT.intermediate)
-                   - FRD models
+                   - FRD model & filtered transfer functions
                    - Optimization details (FIT_RESULT.options.Optimization)
                    - LIGO FOTON Compatible Second-Order-Section filters (when saved to file)                   
 
