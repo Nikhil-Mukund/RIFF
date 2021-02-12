@@ -43,6 +43,10 @@
 %        "FS2" : TS2 Sampling rate
 %     (specify bandwidth via "BW". See  additional arguments.)
 %
+%    [FORMAT 6]
+%        "SDF_DATASETS" : HP/Agilent/Keysight SDF .DAT files as a cell/string array
+%         (also specify the final "SDF_DATASET_FREQ_RESO". See  additional arguments.)
+%
 %    [PRIMARY PARAMETERS FOR IMPROVED FITTING]
 %       "F_INITIAL"     [ Default = min(ff)     ] Starting Freq. for fitting
 %       "F_FINAL"       [ Default = max(ff)     ] Ending Freq. for fitting
@@ -91,6 +95,7 @@
 % "OPTIMIZER_DISPLAY_LEVEL" [Default = 'off'    ] Options {'none','off','iter','final'}
 %       "READ_CONFIG"   [ Default = 0           ]    Read configuration file
 %       "CONFIG_FILE"   [ Default = 'fitTF_config.ini']  Configuration file name
+% "SDF_DATASET_FREQ_RESO"[ Default = 0.1        ] Final freq. reso for the combined HP/Agilent/Keysight SDF files
 %
 % OUTPUT:
 %       FIT: Structure containing the results of fitting routine (ZPK model,Measured & modeled reponses, goodness of fit, Optimization details...etc)
@@ -190,6 +195,9 @@ disp('Starting transfer function estimation...')
 
 format long g
 
+% add path
+try addpath('./utils');catch;end
+
 if isempty(varargin)
     disp('No input arguments provided, check the description given below...')
     eval('help fitTF.m')
@@ -254,6 +262,7 @@ INPUT_DATA_FORMAT = 'TextFile';%
 EXPORT_TO_WORKSPACE = 0; % export fitTF result from APP to workspace
 EXPORT_VARIABLE_NAME = 'FIT_RESULT'; % export fitTF from APP result to workspace
 PREVIEW_BODEPLOT_TOGGLE=0; % Used to preview bodeplot from the App
+SDF_DATASET_FREQ_RESO = 0.1; % Used to determine the final SDF interpolation freq reso
 %--------------------------------------------------------------------------
 
 % [FIGURE HANDLE OPTIONS]
@@ -326,6 +335,8 @@ for k= 1:2:length(varargin)
             TF = varargin{k+1};
         case {'FRD'}
             FRD = varargin{k+1};
+        case {'SDF_DATASETS'}
+            SDF_DATASETS = varargin{k+1};            
         case {'AO'}
             AO = varargin{k+1};
         case {'TS1'}
@@ -340,6 +351,8 @@ for k= 1:2:length(varargin)
             BW = double(varargin{k+1});
         case {'INTERP_FRD'}
             INTERP_FRD = double(varargin{k+1});
+        case {'SDF_DATASET_FREQ_RESO'}
+            SDF_DATASET_FREQ_RESO = double(varargin{k+1});            
         case {'PLOT_TOGGLE'}
             PLOT_TOGGLE = varargin{k+1};
         case {'SAVE_TOGGLE'}
@@ -567,6 +580,11 @@ if exist('FRD','var')
     TF       = MAG.*exp(1i*PHS*pi/180);
 end
 
+if exist('SDF_DATASETS','var')
+    disp('Analysing HP/Agilent/KeySight SDF .DAT files...')
+        [TF,f,~,~,~] = combineTFs(SDF_DATASETS,SDF_DATASET_FREQ_RESO,BO,0);
+end
+
 if exist('AO','var')
     disp('Analysing Analysis Object (AO)...')
     f = AO.data.x;
@@ -614,17 +632,8 @@ TF = TF(:);
 TF_orig = TF;
 f_orig  = f;
 
-% Auto-Decrease the number of samples to 1000 samples
-if INTERP_FRD
-    % Only decrease if freq span > 100 Hz.
-    if (F_FINAL - F_INITIAL) > 100
-        FRD_temp = frd(TF,2*pi*f);
-        freq_rs = logspace(log10(min(f+eps)),log10(max(f)),1000);
-        FRD_temp_rs = interp(FRD_temp,2*pi*freq_rs);
-        TF = squeeze(FRD_temp_rs.ResponseData);
-        f = freq_rs(:);
-    end
-end
+
+
 
 % Stress on user specific freq. regions
 if exist('VIDX','var')
@@ -644,6 +653,20 @@ end
 
 if F_FINAL_toggle ~= 1
     F_FINAL = f(end);
+end
+
+
+% Auto-Decrease the number of samples to 1000 samples
+if INTERP_FRD
+    % Only decrease if freq span > 100 Hz.
+    if (F_FINAL - F_INITIAL) > 100
+        fprintf('Auto-Decrease the number of samples to 1000 samples \n')
+        FRD_temp = frd(TF,2*pi*f);
+        freq_rs = logspace(log10(min(f+eps)),log10(max(f)),1000);
+        FRD_temp_rs = interp(FRD_temp,2*pi*freq_rs);
+        TF = squeeze(FRD_temp_rs.ResponseData);
+        f = freq_rs(:);
+    end
 end
 
 % Do some sanity checks
@@ -774,7 +797,17 @@ else
     
     gof = -inf;
     gof_reduced_order_best = -inf;
+    
+    
     for trial = 1:NUM_TRIALS
+        
+        % Check if StopExecutionButton State changed within the App
+        if MATLAB_APP_TOGGLE == 1
+            if APP.StopExecutionButton.Value==1
+                return;
+            end
+        end
+        
         
         fprintf('Executing trial %d of %d \n',trial,NUM_TRIALS)
         
@@ -966,15 +999,12 @@ else
         
         
         % this criterion was added to prevent some errors
-        if ~(sum(real(p) > 0) > 0)
-            
-            
-            
+        if ~(sum(real(p) > 0) > 0) && ENFORCE_STABILITY==1
+                                    
             % Use PZCANCEL [NOT USED]
             %[z_ro,p_ro,k_ro] = pzcancel(z,p,k,PZTOL);
             %modelSYS_reducedOrder = zpk(z_ro,p_ro,k_ro);
-            
-            
+                        
             FIT.intermediate(trial).ZPK.z = z;
             FIT.intermediate(trial).ZPK.p = p;
             FIT.intermediate(trial).ZPK.k = k;
@@ -985,9 +1015,7 @@ else
             FIT.intermediate(trial).ORDER = order(modelSYS);
             FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
             %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;
-            
-            
-            
+                                    
             if gof_trial > gof
                 fprintf('Better solution (gof = %0.2f %s) obtained. Updating best fit parameters...\n',gof_trial,'%')
                 x0_best      = x0;
@@ -1019,8 +1047,7 @@ else
                     gof          = gof_trial;
                     best_trial   = trial;
                 end
-            end
-            
+            end            
             if INTERMEDIATE_PLOT
                 FIG_HANDLE_VISIBILITY=0;
                 BO.XLim = [xsur(2)/2 , 2*xsur(3)];
@@ -1029,6 +1056,63 @@ else
                 make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS, modelSYS_best);
             end
                 FIG_HANDLE_VISIBILITY=FIG_HANDLE_VISIBILITY_ORIG;
+                
+        elseif  ENFORCE_STABILITY~=1
+                                                
+            % Use PZCANCEL [NOT USED]
+            %[z_ro,p_ro,k_ro] = pzcancel(z,p,k,PZTOL);
+            %modelSYS_reducedOrder = zpk(z_ro,p_ro,k_ro);                        
+            FIT.intermediate(trial).ZPK.z = z;
+            FIT.intermediate(trial).ZPK.p = p;
+            FIT.intermediate(trial).ZPK.k = k;
+            FIT.intermediate(trial).ZPK.z_sigma = z_sigma;
+            FIT.intermediate(trial).ZPK.p_sigma = p_sigma;
+            FIT.intermediate(trial).ZPK.k_sigma = k_sigma;
+            FIT.intermediate(trial).GOF = gof_trial;
+            FIT.intermediate(trial).ORDER = order(modelSYS);
+            FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
+            %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;                                    
+            if gof_trial > gof
+                fprintf('Better solution (gof = %0.2f %s) obtained. Updating best fit parameters...\n',gof_trial,'%')
+                x0_best      = x0;
+                xsur_best    = xsur;
+                z_best       = z;
+                p_best       = p;
+                k_best       = k;
+                z_best_sigma       = z_sigma;
+                p_best_sigma       = p_sigma;
+                k_best_sigma       = k_sigma;
+                modelSYS_best = modelSYS;
+                %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
+                gof          = gof_trial;
+                best_trial   = trial;
+                % accept if model order is less but has the same GOF
+            elseif gof_trial == gof
+                if order(modelSYS) < order(modelSYS_best)
+                    fprintf(' Solution with similar gof (= %0.2f %s) but with a reduced order(=%d) obtained. Updating best fit parameters...\n',gof_trial,'%',order(modelSYS))
+                    x0_best      = x0;
+                    xsur_best    = xsur;
+                    z_best       = z;
+                    p_best       = p;
+                    k_best       = k;
+                    z_best_sigma       = z_sigma;
+                    p_best_sigma       = p_sigma;
+                    k_best_sigma       = k_sigma;
+                    modelSYS_best = modelSYS;
+                    %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
+                    gof          = gof_trial;
+                    best_trial   = trial;
+                end
+            end            
+            if INTERMEDIATE_PLOT
+                FIG_HANDLE_VISIBILITY=0;
+                BO.XLim = [xsur(2)/2 , 2*xsur(3)];
+                BO.Title.String = sprintf('Bode Plot --> Trial No: %d of %d \n Goodness Of Fit (GOF): %0.2f %s (Best GOF: %0.2f %s)',trial,NUM_TRIALS,gof_trial,'%',gof,'%');
+                BO.Title.FontSize = 15;
+                make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS, modelSYS_best);
+            end
+                FIG_HANDLE_VISIBILITY=FIG_HANDLE_VISIBILITY_ORIG;
+            
         else
             fprintf('Trial %d has poles with +ve real part -> UNSTABLE -> skipping...  \n',trial)
         end
@@ -1172,7 +1256,11 @@ else
     VARARGIN = string(size(varargin));
     for iii = 1:numel(varargin)
         if (ischar(varargin{iii}) || isa(varargin{iii},'string'))
+            if numel(string(varargin{iii}))>1
+                VARARGIN(iii) = strjoin(varargin{iii});
+            else
             VARARGIN(iii) = varargin{iii};
+            end
         elseif isa(varargin{iii},'ao') || isa(varargin{iii},'zpk')
             VARARGIN(iii) = class(varargin{iii});
         else
@@ -2022,12 +2110,10 @@ end
         %imh = getframe(gca(FIG_GCF));
         %imshow(imh.cdata,'Parent',APP.UIAxes);        
         %haX = findobj(FIG_GCF,'type','axes');
-        %copyobj(haX,APP.UIAxes);
-        
-
-        
-
+        %copyobj(haX,APP.UIAxes);                
     end
+
+
 
 end
 

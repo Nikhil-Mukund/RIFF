@@ -9,9 +9,9 @@
 - For command-line use, checkout **fitTF.m**
 
 ## Fit a text-file
-![Alt text](RIFF-tutorial-1.gif)
+![Alt text](/tutorials/RIFF-tutorial-1.gif)
 
 ## Fit workspace variables 
-![Alt text](RIFF-tutorial-2.gif)
+![Alt text](/tutorials/RIFF-tutorial-2.gif)
 
 - To use the BADS optimizer, install it from [BADS-GitHub](https://github.com/lacerbi/bads) and add the folder to the search path.
