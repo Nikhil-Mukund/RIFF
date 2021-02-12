@@ -5,7 +5,9 @@
 - Developed to aid 
 
       - Design of control & calibration filters at gravitational wave (GW) observatories.
+      
       - Design of feedforward & feedback filters for platform stabilization & seismic noise isolation.
+      
       - Time domain subtraction of the noise sources that linearly couple to the GW strain data.
 
 - Input data format
