@@ -61,7 +61,7 @@
 - Compatibility: MATLAB R2020b+
 
 - Related Publication <br /> &ensp;<br /> &ensp; **Bilinear noise subtraction at the GEO 600 observatory** <br /> &ensp; 
-   [*N. Mukund et al.* Phys. Rev. D 101 102006, May 2020](https://doi.org/10.1103/PhysRevD.101.102006)
+   [*N. Mukund et al.*   Phys. Rev. D 101 102006, May 2020](https://doi.org/10.1103/PhysRevD.101.102006)
    
 
 
