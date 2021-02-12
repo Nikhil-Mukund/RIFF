@@ -4,9 +4,9 @@
 
 - Developed to aid 
 
-        - Design of control & calibration filters at gravitational wave (GW) observatories.
-        - Design of feedforward & feedback filters for platform stabilization & seismic noise isolation.
-        - Time domain subtraction of the noise sources that linearly couple to the GW strain data.
+      - Design of control & calibration filters at gravitational wave (GW) observatories.
+      - Design of feedforward & feedback filters for platform stabilization & seismic noise isolation.
+      - Time domain subtraction of the noise sources that linearly couple to the GW strain data.
 
 - Input data format
 
@@ -51,7 +51,7 @@
 ## Fit workspace variables 
 ![Alt text](/tutorials/RIFF-tutorial-2.gif)
 
-## Fit Hp/Agilent/Keysight Spectrum Analyzer Measurements (SDF .DAT Format)
+## Fit HP/Agilent/Keysight Spectrum Analyzer Measurements (SDF .DAT Format)
 ![Alt text](/tutorials/RIFF-tutorial-3.gif)
 
 - To use the Bayesian Adaptive Direct Search (BADS) optimizer, install it from [BADS-GitHub](https://github.com/lacerbi/bads) and add the folder to MATLAB search path.
