@@ -12,8 +12,17 @@
       
 - Features
 
-      - Uses available optimizers to find the filter order, fitting algorithm, weighting filter that maximizes the goodness of fit.
-      - Finds the best routine from among Subspace identification (N4SID), Vector fitting or Complex-curve fitting algorithms.
+      - Uses available optimizers to find the best parameters that maximizes the goodness of fit.
+                        - filter order
+                        - fitting algorithm
+                        - weighting filter 
+                        - Frequency limits
+                        
+      - System identification is done using 
+                        - Subspace identification (N4SID)
+                        - Vector fitting 
+                        - Complex-curve fitting algorithms.
+                        
       - Calculates the associated uncertainties & the full covariance matrix.
 
 - Input data format
@@ -34,13 +43,14 @@
 
 - Output
 
-         - FIT Structure containing 
-                   - Identified ZPK with the associated uncertainties  
-                   - Goodness of fit
-                   - Results from the intermediate stages
+         - FIT_RESULT Structure containing 
+                   - Identified ZPK with the associated uncertainties  (FIT_RESULT.ZPK)
+                   - Goodness of fit (FIT_RESULT.gof)
+                   - Full covariance matrix. (FIT_RESULT.ZPK.parameterCovarianceMatrix)
+                   - Results from the intermediate stages (FIT_RESULT.intermediate)
                    - FRD models
-                   - Optimization details
-                   - LIGO FOTON Compatible Second-Order-Section filters (when saved to file)
+                   - Optimization details (FIT_RESULT.options.Optimization)
+                   - LIGO FOTON Compatible Second-Order-Section filters (when saved to file)                   
 
 - To launch the application, open **RIFF.mlapp**
 
