@@ -9,6 +9,12 @@
       - Design of feedforward & feedback filters for platform stabilization & seismic noise isolation.
       
       - Time domain subtraction of the noise sources that linearly/bi-linearly couple to the GW strain data.
+      
+- Features
+
+      - Uses available optimizers to find the filter order, fitting algorithm, weighting filter that maximizes the goodness of fit.
+      - Finds the best routine from among Subspace identification (N4SID), Vector fitting or Complex-curve fitting algorithms.
+      - Calculates the associated uncertainties & the full covariance matrix.
 
 - Input data format
 
