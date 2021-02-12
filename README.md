@@ -26,6 +26,7 @@
 
 - Related Publication: <br />   **Bilinear noise subtraction at the GEO 600 observatory** <br />    *Phys. Rev. D 101 102006* <br /><https://doi.org/10.1103/PhysRevD.101.102006>
 
+# How to use
 
 ## Fit a text-file
 ![Alt text](/tutorials/RIFF-tutorial-1.gif)
