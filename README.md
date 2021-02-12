@@ -12,7 +12,7 @@
       
 - Features
 
-      - Uses available optimizers to find the best parameters that maximizes the goodness of fit.
+      - Uses the chosen optimizer to find the best parameters (see below) that maximizes the goodness of fit.
                         - filter order
                         - fitting algorithm
                         - weighting filter 
@@ -36,7 +36,7 @@
                   - {Frequency,Complex TransferFunction}
                   - {Frequency Response Data (FRD) Model}
                   
-      - HP-Agilent-Keysight Spectrum Analyzer Measurements
+      - HP-Agilent-Keysight Spectrum Analyzer measurements
                  - {SDF .DAT files}
                  
       - Input & Output time series and their sampling frequencies
@@ -88,6 +88,8 @@
      > Acerbi, L. & Ma, W. J. (2017). [Practical Bayesian Optimization for Model Fitting with Bayesian Adaptive Direct Search](https://proceedings.neurips.cc/paper/2017/hash/df0aab058ce179e4f7ab135ed4e641a9-Abstract.html) In Advances in Neural Information Processing Systems 30, pages 1834-1844. [arXiv preprint](https://arxiv.org/abs/1705.04405)
       
     > Martin Hewitson et al. [LTPDA Toolbox V3.0.13](https://www.lisamission.org/ltpda/)
+    
+    > Justin Dinale (2021). [SDF Importer](https://www.mathworks.com/matlabcentral/fileexchange/67513-sdf-importer), MATLAB Central File Exchange. Retrieved February 12, 2021.
     
 - Notes     
 
