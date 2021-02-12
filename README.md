@@ -24,6 +24,8 @@
                         - Complex-curve fitting algorithms.
                         
       - Calculates the associated uncertainties & the full covariance matrix.
+      
+      - Options to estimate the noise floor & dampen sharp resonances via smoothing the complex transfer function.
 
 - Input data format
 
