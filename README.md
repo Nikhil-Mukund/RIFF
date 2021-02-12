@@ -8,7 +8,7 @@
 
         - time domain subtraction of the noise sources that linearly couple to the GW strain data.
 
-- Input Data: 
+- Input data format
 
       - Text-files (.txt,.csv) Valid formats: {f a b}, {w a b}, {f a ib}, {w a ib}, {f a+ib}, {w a+ib}
       - Workspace Variables: 
