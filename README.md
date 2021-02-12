@@ -21,7 +21,7 @@
       - System identification is done using 
                         - Subspace identification (N4SID)
                         - Vector fitting 
-                        - Complex-curve fitting algorithms.
+                        - Complex-curve fitting algorithms
                         
       - Calculates the associated uncertainties & the full covariance matrix.
       
