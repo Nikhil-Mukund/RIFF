@@ -13,14 +13,14 @@
       - Text-files (.txt,.csv) 
                   - Valid formats: {f a b}, {w a b}, {f a ib}, {w a ib}, {f a+ib}, {w a+ib}
                   
-      - Workspace Variables: 
+      - Workspace Variables 
                   - {Frequency,TransferFunction}
                   - {Frequency Response Data (FRD) Model}
                   
       - HP-Agilent-Keysight Spectrum Analyzer Measurements
                  - {SDF .DAT files}
                  
-      - Input & Output time series and their sampling frequencies.
+      - Input & Output time series and their sampling frequencies
       
       - LISA Technology Package Data Analysis (LTPDA) Analysis Object (AO)
 
