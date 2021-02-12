@@ -19,6 +19,10 @@
                   
       - HP-Agilent-Keysight Spectrum Analyzer Measurements
                  - {SDF .DAT files}
+                 
+      - Input & Output time series and their sampling frequencies.
+      
+      - LISA Technology Package Data Analysis (LTPDA) Analysis Object (AO)
 
 - To launch the application, open **RIFF.mlapp**
 
