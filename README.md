@@ -8,7 +8,7 @@
       
       - Design of feedforward & feedback filters for platform stabilization & seismic noise isolation.
       
-      - Time domain subtraction of the noise sources that linearly couple to the GW strain data.
+      - Time domain subtraction of the noise sources that linearly/bi-linearly couple to the GW strain data.
 
 - Input data format
 
