@@ -77,13 +77,13 @@
      
 - Alternatives
 
-     > Vectfit [matlab](https://www.sintef.no/projectweb/vectfit/)
+     > [Vectfit MATLAB](https://www.sintef.no/projectweb/vectfit/)
      
-     > python vectfit [python](https://github.com/PhilReinhold/vectfit_python)
+     > [Vectfit Python](https://github.com/PhilReinhold/vectfit_python)
      
-     > fdident [matlab](https://www.mathworks.com/products/connections/product_detail/product_35570.html)
+     > [FDIDENT MATLAB](https://www.mathworks.com/products/connections/product_detail/product_35570.html)
      
-     > IIRrational [python](https://lee-mcculler.docs.ligo.org/iirrational/)
+     > [IIRrational Python](https://lee-mcculler.docs.ligo.org/iirrational/)
 
 
 - License
