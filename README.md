@@ -2,15 +2,23 @@
 
 - Description: Generate robust IIR filter models to match the measured transfer functions.
 
-- Developed to aid the design of control & calibration filters at gravitational wave (GW) observatories.
+- Developed to aid 
 
-- Useful for time domain subtraction of the noise sources that linearly couple to the GW strain data.
+        - the design of control & calibration filters at gravitational wave (GW) observatories.
 
-- Input Data: Text-files/Workspace Variables:{F,TF},{FRD Models}/ HP-Agilent-Keysight Spectrum Analyzer Measurements
+        - time domain subtraction of the noise sources that linearly couple to the GW strain data.
+
+- Input Data: 
+
+      - Text-files (.txt,.csv) with any of the following format {f a b}, {w a b}, {f a ib}, {w a ib}, {f a+ib}, {w a+ib}
+      - Workspace Variables: 
+          - {Frequency,TransferFunction}
+          - {Frequency Response Data (FRD) Model}
+      - HP-Agilent-Keysight Spectrum Analyzer Measurements
 
 - To launch the application, open **RIFF.mlapp**
 
-- For command-line use, checkout **fitTF.m**
+- For command-line use, use **fitTF.m**
 
 - Compatibility: MATLAB R2020b+
 
