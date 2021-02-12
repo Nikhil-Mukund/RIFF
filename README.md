@@ -78,8 +78,11 @@
 - Alternatives
 
      > Vectfit [matlab](https://www.sintef.no/projectweb/vectfit/)
+     
      > python vectfit [python](https://github.com/PhilReinhold/vectfit_python)
+     
      > fdident [matlab](https://www.mathworks.com/products/connections/product_detail/product_35570.html)
+     
      > IIRrational [python](https://lee-mcculler.docs.ligo.org/iirrational/)
 
 
