@@ -14,7 +14,7 @@
                   - Valid formats: {f a b}, {w a b}, {f a ib}, {w a ib}, {f a+ib}, {w a+ib}
                   
       - Workspace Variables 
-                  - {Frequency,TransferFunction}
+                  - {Frequency,Complex TransferFunction}
                   - {Frequency Response Data (FRD) Model}
                   
       - HP-Agilent-Keysight Spectrum Analyzer Measurements
