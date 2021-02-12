@@ -63,6 +63,23 @@
 - Related Publication <br /> &ensp;<br /> &ensp; **Bilinear noise subtraction at the GEO 600 observatory** <br /> &ensp; 
    [*N. Mukund et al.* Phys. Rev. D 101 102006, May 2020](https://doi.org/10.1103/PhysRevD.101.102006)
    
+
+
+- License
+ RIFF is released under the terms of the [GNU General Public License v3.0.](https://github.com/Nikhil-Mukund/RIFF/blob/main/LICENSE)
+
+# How to use RIFF
+
+## Fit a text-file
+![Alt text](/tutorials/RIFF-tutorial-1.gif)
+
+## Fit workspace variables 
+![Alt text](/tutorials/RIFF-tutorial-2.gif)
+
+## Fit HP/Agilent/Keysight Spectrum Analyzer Measurements (SDF .DAT Format)
+![Alt text](/tutorials/RIFF-tutorial-3.gif)
+
+
 - Acknowledgements 
 
      > Evgeny Pr (2021). [INI Config](https://www.mathworks.com/matlabcentral/fileexchange/24992-ini-config), MATLAB Central File Exchange. Retrieved February 12, 2021.
@@ -84,19 +101,3 @@
      > [FDIDENT MATLAB](https://www.mathworks.com/products/connections/product_detail/product_35570.html)
      
      > [IIRrational Python](https://lee-mcculler.docs.ligo.org/iirrational/)
-
-
-- License
- RIFF is released under the terms of the [GNU General Public License v3.0.](https://github.com/Nikhil-Mukund/RIFF/blob/main/LICENSE)
-
-# How to use RIFF
-
-## Fit a text-file
-![Alt text](/tutorials/RIFF-tutorial-1.gif)
-
-## Fit workspace variables 
-![Alt text](/tutorials/RIFF-tutorial-2.gif)
-
-## Fit HP/Agilent/Keysight Spectrum Analyzer Measurements (SDF .DAT Format)
-![Alt text](/tutorials/RIFF-tutorial-3.gif)
-
