@@ -24,6 +24,16 @@
       
       - LISA Technology Package Data Analysis (LTPDA) Analysis Object (AO)
 
+- Output
+
+         - FIT Structure containing 
+                   - Identified ZPK with the associated uncertainties  
+                   - Goodness of fit
+                   - Results from the intermediate stages
+                   - FRD models
+                   - Optimization details
+                   - LIGO FOTON Compatible Second-Order-Section filters (when saved to file)
+
 - To launch the application, open **RIFF.mlapp**
 
 - For command-line use, use **fitTF.m**
