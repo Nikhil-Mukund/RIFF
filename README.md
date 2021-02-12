@@ -1,6 +1,6 @@
 # RIFF: Robust IIR Fitting & Filtering
 
-- Description: Generate robust IIR filter models to match the measured transfer functions.
+- **Generate robust IIR filter models to match the measured transfer functions.**
 
 - Developed to aid 
 
