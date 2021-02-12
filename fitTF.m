@@ -982,6 +982,8 @@ else
         
         % extract ZPK from the model
         [z,p,k,~,zcov,pcov,kcov] = zpkdata(modelSYS);
+
+        
         z = cell2mat(z);
         p = cell2mat(p);
         
@@ -1015,6 +1017,18 @@ else
             FIT.intermediate(trial).ORDER = order(modelSYS);
             FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
             %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;
+            
+            % parameterCovarianceMatrix
+            if ESTIMATE_UNCERTAINITY==1
+                if isfield(modelSYS.UserData,'CovarianceMatrix')
+                    FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = modelSYS.UserData.CovarianceMatrix;
+                else
+                    FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = [];
+                end
+            else
+                FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = [];
+            end
+            
                                     
             if gof_trial > gof
                 fprintf('Better solution (gof = %0.2f %s) obtained. Updating best fit parameters...\n',gof_trial,'%')
@@ -1072,6 +1086,18 @@ else
             FIT.intermediate(trial).ORDER = order(modelSYS);
             FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
             %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;                                    
+            
+            % parameterCovarianceMatrix
+            if ESTIMATE_UNCERTAINITY==1
+                if isfield(modelSYS.UserData,'CovarianceMatrix')
+                    FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = modelSYS.UserData.CovarianceMatrix;
+                else
+                    FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = [];
+                end
+            else
+                FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = [];
+            end
+            
             if gof_trial > gof
                 fprintf('Better solution (gof = %0.2f %s) obtained. Updating best fit parameters...\n',gof_trial,'%')
                 x0_best      = x0;
@@ -1169,7 +1195,19 @@ else
     
     FIT.ZPK.z_sigma = z_best_sigma;
     FIT.ZPK.p_sigma = p_best_sigma;
-    FIT.ZPK.k_sigma = k_best_sigma;
+    FIT.ZPK.k_sigma = k_best_sigma;    
+    
+    % parameterCovarianceMatrix
+    if ESTIMATE_UNCERTAINITY==1
+        if isfield(modelSYS_best.UserData,'CovarianceMatrix')
+            FIT.ZPK.parameterCovarianceMatrix = modelSYS_best.UserData.CovarianceMatrix;
+        else
+            FIT.ZPK.parameterCovarianceMatrix = [];
+        end
+    else
+        FIT.ZPK.parameterCovarianceMatrix = [];
+    end
+    
     
     FIT.gof = gof;
     
