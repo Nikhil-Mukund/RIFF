@@ -14,4 +14,7 @@
 ## Fit workspace variables 
 ![Alt text](/tutorials/RIFF-tutorial-2.gif)
 
+## Fit Hp/Agilent/Keysight Spectrum Analyzer Measurements (SDF .DAT Format)
+![Alt text](/tutorials/RIFF-tutorial-3.gif)
+
 - To use the BADS optimizer, install it from [BADS-GitHub](https://github.com/lacerbi/bads) and add the folder to the search path.
