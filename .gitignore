@@ -1,2 +1,5 @@
 # Ignore GIF tutorials
-*.gif
+#*.gif
+
+# Ignore files within the Saved_Models
+./Saved_Models/*
