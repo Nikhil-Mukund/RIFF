@@ -62,6 +62,14 @@
 
 - Related Publication: <br /> &ensp; **Bilinear noise subtraction at the GEO 600 observatory** <br /> &ensp; 
    [*N. Mukund et al.* Phys. Rev. D 101 102006, May 2020](https://doi.org/10.1103/PhysRevD.101.102006)
+   
+- Acknowledgements 
+
+     Evgeny Pr (2021). [INI Config](https://www.mathworks.com/matlabcentral/fileexchange/24992-ini-config), MATLAB Central File Exchange. Retrieved February 12, 2021.
+     
+     Acerbi, L. & Ma, W. J. (2017). [Practical Bayesian Optimization for Model Fitting with Bayesian Adaptive Direct Search.] (https://proceedings.neurips.cc/paper/2017/hash/df0aab058ce179e4f7ab135ed4e641a9-Abstract.html) In Advances in Neural Information Processing Systems 30, pages 1834-1844. [arXiv preprint](https://arxiv.org/abs/1705.04405)
+      
+    Martin Hewitson et al. [LTPDA Toolbox](https://www.lisamission.org/ltpda/)
 
 # How to use
 
