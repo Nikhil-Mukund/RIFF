@@ -87,7 +87,7 @@
 
 
 - License
- RIFF is released under the terms of the GNU General Public License v3.0.
+ RIFF is released under the terms of the [GNU General Public License v3.0.](https://github.com/Nikhil-Mukund/RIFF/blob/main/LICENSE)
 
 # How to use RIFF
 
