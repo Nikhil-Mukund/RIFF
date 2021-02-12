@@ -10,11 +10,11 @@
 
 - Input Data: 
 
-      - Text-files (.txt,.csv) with any of the following format {f a b}, {w a b}, {f a ib}, {w a ib}, {f a+ib}, {w a+ib}
+      - Text-files (.txt,.csv) Valid formats: {f a b}, {w a b}, {f a ib}, {w a ib}, {f a+ib}, {w a+ib}
       - Workspace Variables: 
           - {Frequency,TransferFunction}
           - {Frequency Response Data (FRD) Model}
-      - HP-Agilent-Keysight Spectrum Analyzer Measurements
+      - HP-Agilent-Keysight Spectrum Analyzer Measurements {SDF .DAT files}
 
 - To launch the application, open **RIFF.mlapp**
 
