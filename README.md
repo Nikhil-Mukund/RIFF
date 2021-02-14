@@ -12,7 +12,7 @@
       
 - Features
 
-      - Uses available optimizers to find the best parameters that maximizes the goodness of fit.
+      - Uses the chosen optimizer to find the best parameters (see below) that maximizes the goodness of fit.
                         - filter order
                         - fitting algorithm
                         - weighting filter 
@@ -21,7 +21,7 @@
       - System identification is done using 
                         - Subspace identification (N4SID)
                         - Vector fitting 
-                        - Complex-curve fitting algorithms.
+                        - Complex-curve fitting algorithms
                         
       - Calculates the associated uncertainties & the full covariance matrix.
       
@@ -36,7 +36,7 @@
                   - {Frequency,Complex TransferFunction}
                   - {Frequency Response Data (FRD) Model}
                   
-      - HP-Agilent-Keysight Spectrum Analyzer Measurements
+      - HP-Agilent-Keysight Spectrum Analyzer measurements
                  - {SDF .DAT files}
                  
       - Input & Output time series and their sampling frequencies
@@ -60,34 +60,14 @@
 
 - Compatibility: MATLAB R2020b+
 
-- Related Publication: <br /> &ensp; **Bilinear noise subtraction at the GEO 600 observatory** <br /> &ensp; 
-   [*N. Mukund et al.* Phys. Rev. D 101 102006, May 2020](https://doi.org/10.1103/PhysRevD.101.102006)
+- Related Publication <br /> &ensp;<br /> &ensp; **Bilinear noise subtraction at the GEO 600 observatory** <br /> &ensp; 
+   [*N. Mukund et al.*  &ensp; Phys. Rev. D 101 102006, May 2020](https://doi.org/10.1103/PhysRevD.101.102006)
    
-- Acknowledgements 
-
-     > Evgeny Pr (2021). [INI Config](https://www.mathworks.com/matlabcentral/fileexchange/24992-ini-config), MATLAB Central File Exchange. Retrieved February 12, 2021.
-     
-     > Acerbi, L. & Ma, W. J. (2017). [Practical Bayesian Optimization for Model Fitting with Bayesian Adaptive Direct Search](https://proceedings.neurips.cc/paper/2017/hash/df0aab058ce179e4f7ab135ed4e641a9-Abstract.html) In Advances in Neural Information Processing Systems 30, pages 1834-1844. [arXiv preprint](https://arxiv.org/abs/1705.04405)
-      
-    > Martin Hewitson et al. [LTPDA Toolbox V3.0.13](https://www.lisamission.org/ltpda/)
-    
-- Notes     
-
-     > To use the Bayesian Adaptive Direct Search (BADS) optimizer, install it from [BADS-GitHub](https://github.com/lacerbi/bads) and add the folder to MATLAB search path.
-     
-- Alternatives
-
-     > Vectfit [matlab](https://www.sintef.no/projectweb/vectfit/)
-     
-     > python vectfit [python](https://github.com/PhilReinhold/vectfit_python)
-     
-     > fdident [matlab](https://www.mathworks.com/products/connections/product_detail/product_35570.html)
-     
-     > IIRrational [python](https://lee-mcculler.docs.ligo.org/iirrational/)
 
 
 - License
- RIFF is released under the terms of the [GNU General Public License v3.0.](https://github.com/Nikhil-Mukund/RIFF/blob/main/LICENSE)
+
+     [RIFF](https://github.com/Nikhil-Mukund/RIFF) is released under the terms of the [GNU General Public License v3.0.](https://github.com/Nikhil-Mukund/RIFF/blob/main/LICENSE)
 
 # How to use RIFF
 
@@ -100,3 +80,27 @@
 ## Fit HP/Agilent/Keysight Spectrum Analyzer Measurements (SDF .DAT Format)
 ![Alt text](/tutorials/RIFF-tutorial-3.gif)
 
+
+- Acknowledgements 
+
+     > Evgeny Pr (2021). [INI Config](https://www.mathworks.com/matlabcentral/fileexchange/24992-ini-config), MATLAB Central File Exchange. Retrieved February 12, 2021.
+     
+     > Acerbi, L. & Ma, W. J. (2017). [Practical Bayesian Optimization for Model Fitting with Bayesian Adaptive Direct Search](https://proceedings.neurips.cc/paper/2017/hash/df0aab058ce179e4f7ab135ed4e641a9-Abstract.html) In Advances in Neural Information Processing Systems 30, pages 1834-1844. [arXiv preprint](https://arxiv.org/abs/1705.04405)
+      
+    > Martin Hewitson et al. [LTPDA Toolbox V3.0.13](https://www.lisamission.org/ltpda/)
+    
+    > Justin Dinale (2021). [SDF Importer](https://www.mathworks.com/matlabcentral/fileexchange/67513-sdf-importer), MATLAB Central File Exchange. Retrieved February 12, 2021.
+    
+- Notes     
+
+     > To use the Bayesian Adaptive Direct Search (BADS) optimizer, install it from [BADS-GitHub](https://github.com/lacerbi/bads) and add the folder to MATLAB search path.
+     
+- Alternatives
+
+     > [Vectfit MATLAB](https://www.sintef.no/projectweb/vectfit/)
+     
+     > [Vectfit Python](https://github.com/PhilReinhold/vectfit_python)
+     
+     > [FDIDENT MATLAB](https://www.mathworks.com/products/connections/product_detail/product_35570.html)
+     
+     > [IIRrational Python](https://lee-mcculler.docs.ligo.org/iirrational/)
