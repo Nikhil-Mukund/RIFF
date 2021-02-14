@@ -524,7 +524,7 @@ end
 % Read file
 if exist('FNAME','var')
     disp('Attempting to read file...')
-    FILE = readtable(FNAME);
+    FILE = readtable(FNAME,'ReadVariableNames',0);
     
     % Get Frequency & TF from the loaded file by checking the format
     if exist('FORMAT','var')
