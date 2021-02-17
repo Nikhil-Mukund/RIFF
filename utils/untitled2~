@@ -1,6 +1,0 @@
-UnsortedText = {'BBB_1_B_1.DAT'; 'AAA 10'; 'AAA 9'; 'AAA 1'; 'BBB 2'; 'BBB 19'; 'BBB 9'; 'CCC 0'; 'CCC 9' ;'CCC 80'; 'CCC 7'};
-R = cell2mat(regexp(UnsortedText(1) ,'(?<Name>\D+)(?<Nums>\d+)','names'));
-tmp = sortrows([{R.Name}' num2cell(cellfun(@(x)str2double(x),{R.Nums}'))]);
-SortedText = strcat(tmp(:,1) ,cellfun(@(x) num2str(x), tmp(:,2),'unif',0));
-SortedTextString = string(SortedText) + ".DAT";
-disp(SortedTextString)
