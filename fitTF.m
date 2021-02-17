@@ -526,6 +526,8 @@ if exist('FNAME','var')
     disp('Attempting to read file...')
     FILE = readtable(FNAME,'ReadVariableNames',0);
     
+  
+    
     % Get Frequency & TF from the loaded file by checking the format
     if exist('FORMAT','var')
         if strcmpi(FORMAT,'f a+ib') || strcmpi(FORMAT,'f,a+ib')
