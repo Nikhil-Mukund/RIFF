@@ -81,6 +81,10 @@
 ![Alt text](/tutorials/RIFF-tutorial-3.gif)
 
 
+## Filter TimeSeries using the modeled the transfer function
+![Alt text](/tutorials/RIFF-tutorial-4.gif)
+
+
 - Acknowledgements 
 
      > Evgeny Pr (2021). [INI Config](https://www.mathworks.com/matlabcentral/fileexchange/24992-ini-config), MATLAB Central File Exchange. Retrieved February 12, 2021.
