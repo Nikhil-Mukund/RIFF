@@ -54,7 +54,7 @@
                    - Optimization details (FIT_RESULT.options.Optimization)
                    - LIGO FOTON Compatible Second-Order-Section filters (when saved to file)                   
 
-- To launch the application, open **RIFF.mlapp**
+- To launch the application, type **RIFF**
 
 - For command-line use, use **fitTF.m**
 
