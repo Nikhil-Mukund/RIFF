@@ -54,11 +54,17 @@
                    - Optimization details (FIT_RESULT.options.Optimization)
                    - LIGO FOTON Compatible Second-Order-Section filters (when saved to file)                   
 
-- To launch the application, type **RIFF**
+- To launch the application
 
-- For command-line use, use **fitTF.m**
+            -  type **RIFF**
 
-- Compatibility: **MATLAB R2020b+**
+- For command-line use
+
+            - use **fitTF.m**
+
+- Compatibility
+
+            -   **MATLAB R2020b+**
 
 - Related Publication <br /> &ensp;<br /> &ensp; **Bilinear noise subtraction at the GEO 600 observatory** <br /> &ensp; 
    [*N. Mukund et al.*  &ensp; Phys. Rev. D 101 102006, May 2020](https://doi.org/10.1103/PhysRevD.101.102006)
