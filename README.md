@@ -58,7 +58,7 @@
 
             -  type RIFF 
 
-- For command-line use
+- For command-line use (+finer control)
 
             - use fitTF.m
 
