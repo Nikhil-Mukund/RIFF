@@ -24,6 +24,8 @@
                         - Complex-curve fitting algorithms
                         
       - Calculates the associated uncertainties & the full covariance matrix.
+
+      - Option to generate MINIMUM_PHASE models with no right-half plane zeros.
       
       - Options to estimate the noise floor & dampen sharp resonances via smoothing the complex transfer function.
 
