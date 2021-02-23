@@ -171,6 +171,7 @@
 %                       -Better model order reduction (constrained wrt GOF)
 %                       -Plotting improved
 %    29th Oct 2020:  Auto-Decrease the number of freq samples to 1000 samples
+%    23rd Feb 2021:  Added-> Fill missing values (NaNs) in processed TF  with interpolated values
 %
 % COMPATIBILITY: MATLAB R2018b+
 %
@@ -206,7 +207,7 @@ end
 
 % Declare persistent variables
 clear cohWeight NUM_ZEROS
-persistent cohWeight NUM_ZEROS 
+persistent cohWeight NUM_ZEROS
 
 % Default Parameters
 PLOT_TOGGLE  = 1;       % Enable Bode Plotting
@@ -245,6 +246,7 @@ READ_CONFIG = 0;    % Read configuration file
 CONFIG_FILE = 'fitTF_config.ini'; % Configuration file name
 ENFORCE_STABILITY = 1; % Enforce poles to be on the left half plane
 INTERP_FRD   = 1;      % Auto-Decrease the number of samples to 1000 samples
+ENFORCE_MINIMUM_PHASE = 1; % Prevents Right-Half Plane Zeros
 
 
 % Other Default Params
@@ -336,7 +338,7 @@ for k= 1:2:length(varargin)
         case {'FRD'}
             FRD = varargin{k+1};
         case {'SDF_DATASETS'}
-            SDF_DATASETS = varargin{k+1};            
+            SDF_DATASETS = varargin{k+1};
         case {'AO'}
             AO = varargin{k+1};
         case {'TS1'}
@@ -352,7 +354,7 @@ for k= 1:2:length(varargin)
         case {'INTERP_FRD'}
             INTERP_FRD = double(varargin{k+1});
         case {'SDF_DATASET_FREQ_RESO'}
-            SDF_DATASET_FREQ_RESO = double(varargin{k+1});            
+            SDF_DATASET_FREQ_RESO = double(varargin{k+1});
         case {'PLOT_TOGGLE'}
             PLOT_TOGGLE = varargin{k+1};
         case {'SAVE_TOGGLE'}
@@ -377,6 +379,8 @@ for k= 1:2:length(varargin)
             FUNC_EVAL = double(varargin{k+1});
         case {'USE_PARALLEL'}
             USE_PARALLEL = varargin{k+1};
+        case {'ENFORCE_MINIMUM_PHASE'}
+            ENFORCE_MINIMUM_PHASE = varargin{k+1};            
         case {'OPTIMIZER'}
             OPTIMIZER = upper(varargin{k+1});
         case {'SMOOTH_LEVEL'}
@@ -494,7 +498,7 @@ if MATLAB_APP_TOGGLE == 1
 end
 
 if MATLAB_APP_TOGGLE == 1
-       FIG_TEMP = figure('Renderer', 'painters', 'Position', [0 0 0.1 0.1]);    
+    FIG_TEMP = figure('Renderer', 'painters', 'Position', [0 0 0.1 0.1]);
 end
 
 FIG_HANDLE_VISIBILITY_ORIG = FIG_HANDLE_VISIBILITY;
@@ -526,7 +530,7 @@ if exist('FNAME','var')
     disp('Attempting to read file...')
     FILE = readtable(FNAME,'ReadVariableNames',0);
     
-  
+    
     
     % Get Frequency & TF from the loaded file by checking the format
     if exist('FORMAT','var')
@@ -584,7 +588,7 @@ end
 
 if exist('SDF_DATASETS','var')
     disp('Analysing HP/Agilent/KeySight SDF .DAT files...')
-        [TF,f,~,~,~] = combineTFs(SDF_DATASETS,SDF_DATASET_FREQ_RESO,BO,0);
+    [TF,f,~,~,~] = combineTFs(SDF_DATASETS,SDF_DATASET_FREQ_RESO,BO,0);
 end
 
 if exist('AO','var')
@@ -781,6 +785,11 @@ elseif SMOOTH_LEVEL == 6
 end
 
 
+% Fill missing values (NaN) with interpolated values
+TF = fillmissing(TF,'spline');
+
+
+
 % Initialize cohWeight if empty
 if isempty(cohWeight)
     cohWeight = ones(size(TF));
@@ -792,7 +801,7 @@ if PREVIEW_BODEPLOT_TOGGLE==1
     FIT=[];
     close(FIG_TEMP);
 else
- 
+    
     
     % Define cost function
     rf = @(Params)fitTF_costFunc(f,TF,Params); % objective
@@ -984,7 +993,7 @@ else
         
         % extract ZPK from the model
         [z,p,k,~,zcov,pcov,kcov] = zpkdata(modelSYS);
-
+        
         
         z = cell2mat(z);
         p = cell2mat(p);
@@ -1003,12 +1012,12 @@ else
         
         
         % this criterion was added to prevent some errors
-        if ~(sum(real(p) > 0) > 0) && ENFORCE_STABILITY==1
-                                    
+        if ~(sum(real(p) > 0) > 0) && ENFORCE_STABILITY==1 && ENFORCE_MINIMUM_PHASE==0
+            
             % Use PZCANCEL [NOT USED]
             %[z_ro,p_ro,k_ro] = pzcancel(z,p,k,PZTOL);
             %modelSYS_reducedOrder = zpk(z_ro,p_ro,k_ro);
-                        
+            
             FIT.intermediate(trial).ZPK.z = z;
             FIT.intermediate(trial).ZPK.p = p;
             FIT.intermediate(trial).ZPK.k = k;
@@ -1031,7 +1040,7 @@ else
                 FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = [];
             end
             
-                                    
+            
             if gof_trial > gof
                 fprintf('Better solution (gof = %0.2f %s) obtained. Updating best fit parameters...\n',gof_trial,'%')
                 x0_best      = x0;
@@ -1063,7 +1072,7 @@ else
                     gof          = gof_trial;
                     best_trial   = trial;
                 end
-            end            
+            end
             if INTERMEDIATE_PLOT
                 FIG_HANDLE_VISIBILITY=0;
                 BO.XLim = [xsur(2)/2 , 2*xsur(3)];
@@ -1071,13 +1080,13 @@ else
                 BO.Title.FontSize = 15;
                 make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS, modelSYS_best);
             end
-                FIG_HANDLE_VISIBILITY=FIG_HANDLE_VISIBILITY_ORIG;
-                
+            FIG_HANDLE_VISIBILITY=FIG_HANDLE_VISIBILITY_ORIG;
+            
         elseif  ENFORCE_STABILITY~=1
-                                                
+            
             % Use PZCANCEL [NOT USED]
             %[z_ro,p_ro,k_ro] = pzcancel(z,p,k,PZTOL);
-            %modelSYS_reducedOrder = zpk(z_ro,p_ro,k_ro);                        
+            %modelSYS_reducedOrder = zpk(z_ro,p_ro,k_ro);
             FIT.intermediate(trial).ZPK.z = z;
             FIT.intermediate(trial).ZPK.p = p;
             FIT.intermediate(trial).ZPK.k = k;
@@ -1087,7 +1096,7 @@ else
             FIT.intermediate(trial).GOF = gof_trial;
             FIT.intermediate(trial).ORDER = order(modelSYS);
             FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
-            %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;                                    
+            %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;
             
             % parameterCovarianceMatrix
             if ESTIMATE_UNCERTAINITY==1
@@ -1131,7 +1140,7 @@ else
                     gof          = gof_trial;
                     best_trial   = trial;
                 end
-            end            
+            end
             if INTERMEDIATE_PLOT
                 FIG_HANDLE_VISIBILITY=0;
                 BO.XLim = [xsur(2)/2 , 2*xsur(3)];
@@ -1139,7 +1148,156 @@ else
                 BO.Title.FontSize = 15;
                 make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS, modelSYS_best);
             end
+            FIG_HANDLE_VISIBILITY=FIG_HANDLE_VISIBILITY_ORIG;
+            
+            
+        elseif ~(sum(real(p) > 0) > 0) && ENFORCE_STABILITY==1 && ENFORCE_MINIMUM_PHASE==1
+            
+            % Proceed only if no +ve Zeros are present (MINIMUM PHASE SYSTEMS)
+            if ~sum(z(imag(z)==0) > 0 ) > 0
+                
+                
+                
+                % Use PZCANCEL [NOT USED]
+                %[z_ro,p_ro,k_ro] = pzcancel(z,p,k,PZTOL);
+                %modelSYS_reducedOrder = zpk(z_ro,p_ro,k_ro);
+                
+                FIT.intermediate(trial).ZPK.z = z;
+                FIT.intermediate(trial).ZPK.p = p;
+                FIT.intermediate(trial).ZPK.k = k;
+                FIT.intermediate(trial).ZPK.z_sigma = z_sigma;
+                FIT.intermediate(trial).ZPK.p_sigma = p_sigma;
+                FIT.intermediate(trial).ZPK.k_sigma = k_sigma;
+                FIT.intermediate(trial).GOF = gof_trial;
+                FIT.intermediate(trial).ORDER = order(modelSYS);
+                FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
+                %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;
+                
+                % parameterCovarianceMatrix
+                if ESTIMATE_UNCERTAINITY==1
+                    if isfield(modelSYS.UserData,'CovarianceMatrix')
+                        FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = modelSYS.UserData.CovarianceMatrix;
+                    else
+                        FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = [];
+                    end
+                else
+                    FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = [];
+                end
+                
+                
+                if gof_trial > gof
+                    fprintf('Better solution (gof = %0.2f %s) obtained. Updating best fit parameters...\n',gof_trial,'%')
+                    x0_best      = x0;
+                    xsur_best    = xsur;
+                    z_best       = z;
+                    p_best       = p;
+                    k_best       = k;
+                    z_best_sigma       = z_sigma;
+                    p_best_sigma       = p_sigma;
+                    k_best_sigma       = k_sigma;
+                    modelSYS_best = modelSYS;
+                    %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
+                    gof          = gof_trial;
+                    best_trial   = trial;
+                    % accept if model order is less but has the same GOF
+                elseif gof_trial == gof
+                    if order(modelSYS) < order(modelSYS_best)
+                        fprintf(' Solution with similar gof (= %0.2f %s) but with a reduced order(=%d) obtained. Updating best fit parameters...\n',gof_trial,'%',order(modelSYS))
+                        x0_best      = x0;
+                        xsur_best    = xsur;
+                        z_best       = z;
+                        p_best       = p;
+                        k_best       = k;
+                        z_best_sigma       = z_sigma;
+                        p_best_sigma       = p_sigma;
+                        k_best_sigma       = k_sigma;
+                        modelSYS_best = modelSYS;
+                        %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
+                        gof          = gof_trial;
+                        best_trial   = trial;
+                    end
+                end
+                if INTERMEDIATE_PLOT
+                    FIG_HANDLE_VISIBILITY=0;
+                    BO.XLim = [xsur(2)/2 , 2*xsur(3)];
+                    BO.Title.String = sprintf('Bode Plot --> Trial No: %d of %d \n Goodness Of Fit (GOF): %0.2f %s (Best GOF: %0.2f %s)',trial,NUM_TRIALS,gof_trial,'%',gof,'%');
+                    BO.Title.FontSize = 15;
+                    make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS, modelSYS_best);
+                end
                 FIG_HANDLE_VISIBILITY=FIG_HANDLE_VISIBILITY_ORIG;
+                
+            elseif  ENFORCE_STABILITY~=1
+                
+                % Use PZCANCEL [NOT USED]
+                %[z_ro,p_ro,k_ro] = pzcancel(z,p,k,PZTOL);
+                %modelSYS_reducedOrder = zpk(z_ro,p_ro,k_ro);
+                FIT.intermediate(trial).ZPK.z = z;
+                FIT.intermediate(trial).ZPK.p = p;
+                FIT.intermediate(trial).ZPK.k = k;
+                FIT.intermediate(trial).ZPK.z_sigma = z_sigma;
+                FIT.intermediate(trial).ZPK.p_sigma = p_sigma;
+                FIT.intermediate(trial).ZPK.k_sigma = k_sigma;
+                FIT.intermediate(trial).GOF = gof_trial;
+                FIT.intermediate(trial).ORDER = order(modelSYS);
+                FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
+                %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;
+                
+                % parameterCovarianceMatrix
+                if ESTIMATE_UNCERTAINITY==1
+                    if isfield(modelSYS.UserData,'CovarianceMatrix')
+                        FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = modelSYS.UserData.CovarianceMatrix;
+                    else
+                        FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = [];
+                    end
+                else
+                    FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = [];
+                end
+                
+                if gof_trial > gof
+                    fprintf('Better solution (gof = %0.2f %s) obtained. Updating best fit parameters...\n',gof_trial,'%')
+                    x0_best      = x0;
+                    xsur_best    = xsur;
+                    z_best       = z;
+                    p_best       = p;
+                    k_best       = k;
+                    z_best_sigma       = z_sigma;
+                    p_best_sigma       = p_sigma;
+                    k_best_sigma       = k_sigma;
+                    modelSYS_best = modelSYS;
+                    %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
+                    gof          = gof_trial;
+                    best_trial   = trial;
+                    % accept if model order is less but has the same GOF
+                elseif gof_trial == gof
+                    if order(modelSYS) < order(modelSYS_best)
+                        fprintf(' Solution with similar gof (= %0.2f %s) but with a reduced order(=%d) obtained. Updating best fit parameters...\n',gof_trial,'%',order(modelSYS))
+                        x0_best      = x0;
+                        xsur_best    = xsur;
+                        z_best       = z;
+                        p_best       = p;
+                        k_best       = k;
+                        z_best_sigma       = z_sigma;
+                        p_best_sigma       = p_sigma;
+                        k_best_sigma       = k_sigma;
+                        modelSYS_best = modelSYS;
+                        %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
+                        gof          = gof_trial;
+                        best_trial   = trial;
+                    end
+                end
+                if INTERMEDIATE_PLOT
+                    FIG_HANDLE_VISIBILITY=0;
+                    BO.XLim = [xsur(2)/2 , 2*xsur(3)];
+                    BO.Title.String = sprintf('Bode Plot --> Trial No: %d of %d \n Goodness Of Fit (GOF): %0.2f %s (Best GOF: %0.2f %s)',trial,NUM_TRIALS,gof_trial,'%',gof,'%');
+                    BO.Title.FontSize = 15;
+                    make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS, modelSYS_best);
+                end
+                FIG_HANDLE_VISIBILITY=FIG_HANDLE_VISIBILITY_ORIG;
+                
+                
+            else
+                fprintf('Trial %d has zeros with +ve real part -> NON_MINIMUM_PHASE -> skipping...  \n',trial)
+            end
             
         else
             fprintf('Trial %d has poles with +ve real part -> UNSTABLE -> skipping...  \n',trial)
@@ -1197,7 +1355,7 @@ else
     
     FIT.ZPK.z_sigma = z_best_sigma;
     FIT.ZPK.p_sigma = p_best_sigma;
-    FIT.ZPK.k_sigma = k_best_sigma;    
+    FIT.ZPK.k_sigma = k_best_sigma;
     
     % parameterCovarianceMatrix
     if ESTIMATE_UNCERTAINITY==1
@@ -1299,7 +1457,7 @@ else
             if numel(string(varargin{iii}))>1
                 VARARGIN(iii) = strjoin(varargin{iii});
             else
-            VARARGIN(iii) = varargin{iii};
+                VARARGIN(iii) = varargin{iii};
             end
         elseif isa(varargin{iii},'ao') || isa(varargin{iii},'zpk')
             VARARGIN(iii) = class(varargin{iii});
@@ -1433,14 +1591,14 @@ else
     celldisp(struct2cell(dispayStruct),'FIT results:[{1}->Zeros,{2}->Poles,{3}->Gain,{4}->z_sigma,{5}->p_sigma,{6}->k_sigma,{7}->GOF(%)] ');
     
     disp('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
-   
+    
     % close temp fig
-   if exist('FIG_TEMP','var') 
-       if ishandle(FIG_TEMP)
-         close(FIG_TEMP);
-       end
-   end
-   
+    if exist('FIG_TEMP','var')
+        if ishandle(FIG_TEMP)
+            close(FIG_TEMP);
+        end
+    end
+    
 end
 
 % Fit a Rational function to the given measurement
@@ -2017,11 +2175,11 @@ end
         
         %Code to display image preview inside the App
         if MATLAB_APP_TOGGLE == 1
-            saveas(FIG_GCF,'temp.png');            
+            saveas(FIG_GCF,'temp.png');
             IMG = imread('temp.png');
             imshow(IMG,'Parent',APP.UIAxes);
             figure(APP.UIFigure);
-
+            
         end
         
     end
@@ -2148,9 +2306,9 @@ end
         %IMG = imread('temp.png');
         %imshow(IMG,'Parent',APP.UIAxes);
         %imh = getframe(gca(FIG_GCF));
-        %imshow(imh.cdata,'Parent',APP.UIAxes);        
+        %imshow(imh.cdata,'Parent',APP.UIAxes);
         %haX = findobj(FIG_GCF,'type','axes');
-        %copyobj(haX,APP.UIAxes);                
+        %copyobj(haX,APP.UIAxes);
     end
 
 
