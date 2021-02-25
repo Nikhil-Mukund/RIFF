@@ -1154,7 +1154,7 @@ else
         elseif ~(sum(real(p) > 0) > 0) && ENFORCE_STABILITY==1 && ENFORCE_MINIMUM_PHASE==1
             
             % Proceed only if no +ve Zeros are present (MINIMUM PHASE SYSTEMS)
-            if ~sum(z(imag(z)==0) > 0 ) > 0
+            if ~sum(real(z) > 0 ) > 0 %~sum(z(imag(z)==0) > 0 ) > 0
                 
                 
                 
@@ -1347,6 +1347,18 @@ else
     
     % Fit Routines
     Routines = ["rationalfit","tfest","invfreqs"];
+    
+    % Check if atleast one solution was found else return & disp status
+    if ~exist('p_best','var')
+        fprintf('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n')
+        fprintf('Unable to find a solution with the given settings.\n')
+        fprintf('Either increase the NUM_TRAIALS or relax some of the specified settings. (Ex. Set ENFORCE_MINIMUM_PHASE=0)\n')
+        fprintf('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n')        
+        FIT=[];
+        close(FIG_TEMP);
+        return
+    end
+    
     
     % Create FIT Structure [OUTPUT]
     FIT.ZPK.z = z_best;
@@ -1678,7 +1690,8 @@ end
             if isempty(NUM_ZEROS)
                 modelSYS = tfest(trunSYS0,NUM_POLES,NUM_POLES,tfestOpt);
             else
-                modelSYS = tfest(trunSYS0,NUM_POLES,NUM_ZEROS,tfestOpt);
+                % Use min(NUM_POLES,NUM_ZEROS) for NUM_ZEROS
+                modelSYS = tfest(trunSYS0,NUM_POLES,min(NUM_POLES,NUM_ZEROS),tfestOpt);
             end
             
             % ESTIMATE_UNCERTAINITY
