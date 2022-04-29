@@ -4,7 +4,7 @@
 
 - To Install 
 
-            -  Click & install using the **.mlappinstall** file 
+            - Click & install using the mlappinstall file 
 
 - Features
 
