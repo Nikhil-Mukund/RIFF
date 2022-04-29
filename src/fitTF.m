@@ -199,7 +199,7 @@ disp('Starting transfer function estimation...')
 format long g
 
 % add path
-% try addpath('./utils');catch;end
+try addpath('./utils');catch;end
 
 if isempty(varargin)
     disp('No input arguments provided, check the description given below...')
