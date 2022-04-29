@@ -2,14 +2,10 @@
 
 - **Generate robust IIR Zero-Pole-Gain filter models to match the measured transfer functions.**
 
-- Developed to aid 
+- To Install 
 
-      - Design of control & calibration filters at gravitational wave (GW) observatories.
-      
-      - Design of feedforward & feedback filters for platform stabilization & seismic noise isolation.
-      
-      - Time domain subtraction of the noise sources that linearly/bi-linearly couple to the GW strain data.
-      
+            -  Click & install using the **.mlappinstall** file 
+
 - Features
 
       - Uses the chosen optimizer to find the best parameters (see below) that maximizes the goodness of fit.
@@ -56,9 +52,7 @@
                    - Optimization details (FIT_RESULT.options.Optimization)
                    - LIGO FOTON Compatible Second-Order-Section filters (when saved to file)                   
 
-- To launch the application
 
-            -  type RIFF 
 
 - For command-line use (+finer control)
 
@@ -66,8 +60,17 @@
 
 - Compatibility
 
-            -   MATLAB R2020b+
+            -   MATLAB R2021b+
+            
+- Developed to aid 
 
+      - Design of control & calibration filters at gravitational wave (GW) observatories.
+      
+      - Design of feedforward & feedback filters for platform stabilization & seismic noise isolation.
+      
+      - Time domain subtraction of the noise sources that linearly/bi-linearly couple to the GW strain data.
+      
+      
 - Related Publication <br /> &ensp;<br /> &ensp; **Bilinear noise subtraction at the GEO 600 observatory** <br /> &ensp; 
    [*N. Mukund et al.*  &ensp; Phys. Rev. D 101 102006, May 2020](https://doi.org/10.1103/PhysRevD.101.102006)
    
