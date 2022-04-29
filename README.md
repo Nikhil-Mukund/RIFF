@@ -6,6 +6,12 @@
 
             - Click & install using the mlappinstall file 
 
+- To Launch App 
+              
+            - Launch from the Apps toolbar
+            - Or type RIFF from the command line
+            
+
 - Features
 
       - Uses the chosen optimizer to find the best parameters (see below) that maximizes the goodness of fit.
