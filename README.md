@@ -15,6 +15,9 @@
 
       - Simplied SysID via guided workflow.
       - Improved fitting algorithm 
+      - Option to generate MINIMUM_PHASE models without any right-half plane zeros.
+      - Option to account for input-output delays 
+      - One click install
 
 - Features
 
@@ -31,9 +34,6 @@
                         
       - Calculates the associated uncertainties & the full covariance matrix.
 
-      - Option to generate MINIMUM_PHASE models without any right-half plane zeros.
-
-      - Account for input-output delays 
       
       - Options to estimate the noise floor & dampen sharp resonances via smoothing the complex transfer function.
 
