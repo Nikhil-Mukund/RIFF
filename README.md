@@ -11,6 +11,10 @@
             - Launch from the Apps toolbar
             - Or type RIFF from the command line
             
+- What's New!
+
+      - Simplied SysID via guided workflow.
+      - Improved fitting algorithm 
 
 - Features
 
