@@ -68,7 +68,7 @@
 
 - Compatibility
 
-            -   MATLAB R2021b+
+            -   MATLAB R2022a+
             
 - Developed to aid 
 
