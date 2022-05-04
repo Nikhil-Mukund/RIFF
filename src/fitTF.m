@@ -1077,6 +1077,7 @@ else
             FIT.intermediate(trial).GOF = gof_trial;
             FIT.intermediate(trial).ORDER = order(modelSYS);
             FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
+            FIT.intermediate(trial).FRD_Model.truncated_measurement = trunSYS;
             %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;
             
             % parameterCovarianceMatrix
@@ -1103,6 +1104,7 @@ else
                 p_best_sigma       = p_sigma;
                 k_best_sigma       = k_sigma;
                 modelSYS_best = modelSYS;
+                trunSYS_best  = trunSYS;
                 %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
                 gof          = gof_trial;
                 best_trial   = trial;
@@ -1120,6 +1122,7 @@ else
                     p_best_sigma       = p_sigma;
                     k_best_sigma       = k_sigma;
                     modelSYS_best = modelSYS;
+                    trunSYS_best  = trunSYS;
                     %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
                     gof          = gof_trial;
                     best_trial   = trial;
@@ -1149,6 +1152,7 @@ else
             FIT.intermediate(trial).GOF = gof_trial;
             FIT.intermediate(trial).ORDER = order(modelSYS);
             FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
+            FIT.intermediate(trial).FRD_Model.truncated_measurement = trunSYS;            
             %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;
             
             % parameterCovarianceMatrix
@@ -1175,6 +1179,7 @@ else
                 k_best_sigma       = k_sigma;
                 modelSYS_best = modelSYS;
                 %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
+                trunSYS_best  = trunSYS;
                 gof          = gof_trial;
                 best_trial   = trial;
                 % accept if model order is less but has the same GOF
@@ -1192,6 +1197,7 @@ else
                     k_best_sigma       = k_sigma;
                     modelSYS_best = modelSYS;
                     %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
+                    trunSYS_best  = trunSYS;               
                     gof          = gof_trial;
                     best_trial   = trial;
                 end
@@ -1227,6 +1233,8 @@ else
                 FIT.intermediate(trial).GOF = gof_trial;
                 FIT.intermediate(trial).ORDER = order(modelSYS);
                 FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
+                FIT.intermediate(trial).FRD_Model.truncated_measurement = trunSYS;
+                
                 %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;
                 
                 % parameterCovarianceMatrix
@@ -1254,6 +1262,7 @@ else
                     k_best_sigma       = k_sigma;
                     modelSYS_best = modelSYS;
                     %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
+                    trunSYS_best  = trunSYS;
                     gof          = gof_trial;
                     best_trial   = trial;
                     % accept if model order is less but has the same GOF
@@ -1271,6 +1280,7 @@ else
                         k_best_sigma       = k_sigma;
                         modelSYS_best = modelSYS;
                         %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
+                        trunSYS_best  = trunSYS;                
                         gof          = gof_trial;
                         best_trial   = trial;
                     end
@@ -1299,6 +1309,7 @@ else
                 FIT.intermediate(trial).GOF = gof_trial;
                 FIT.intermediate(trial).ORDER = order(modelSYS);
                 FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
+                FIT.intermediate(trial).FRD_Model.truncated_measurement = trunSYS;                
                 %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;
                 
                 % parameterCovarianceMatrix
@@ -1325,6 +1336,7 @@ else
                     k_best_sigma       = k_sigma;
                     modelSYS_best = modelSYS;
                     %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
+                    trunSYS_best  = trunSYS;                   
                     gof          = gof_trial;
                     best_trial   = trial;
                     % accept if model order is less but has the same GOF
@@ -1342,6 +1354,7 @@ else
                         k_best_sigma       = k_sigma;
                         modelSYS_best = modelSYS;
                         %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
+                        trunSYS_best  = trunSYS;                    
                         gof          = gof_trial;
                         best_trial   = trial;
                     end
@@ -1453,7 +1466,7 @@ else
     
     FIT.FRD_Model.measured_original = SYS_orig;
     FIT.FRD_Model.measured_smoothed = SYS;
-    FIT.FRD_Model.truncated         = trunSYS;
+    FIT.FRD_Model.truncated         = trunSYS_best;
     FIT.FRD_Model.modeled           = modelSYS_best;
     
     % add reduced order model
@@ -1567,9 +1580,9 @@ else
         BO.Title.String = sprintf('Bode Plot');
         BO.Title.FontSize = 15;
         if exist('modelSYS_best_reducedOrder','var')
-            make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS_best,modelSYS_best,modelSYS_best_reducedOrder);
+            make_plot(BO,SYS_orig,SYS,trunSYS_best,modelSYS_best,modelSYS_best,modelSYS_best_reducedOrder);
         else
-            make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS_best,modelSYS_best);
+            make_plot(BO,SYS_orig,SYS,trunSYS_best,modelSYS_best,modelSYS_best);
         end
         
         if SAVE_TOGGLE
