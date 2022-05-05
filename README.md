@@ -4,7 +4,7 @@
 
 
             
-- What's New!
+- **What's New!**
 
       - Simplied SysID via guided workflow.
       - Improved fitting algorithm 
@@ -12,7 +12,7 @@
       - Option to account for input-output delays 
       - One click install
 
-- Features
+- **Features**
 
       - Uses the chosen optimizer to find the best parameters (see below) that maximizes the goodness of fit.
                         - filter order
@@ -30,11 +30,11 @@
       
       - Options to estimate the noise floor & dampen sharp resonances via smoothing the complex transfer function.
 
-- To Install 
+- **To Install** 
 
             - Click & install using the mlappinstall file 
 
-- To Launch App 
+- **To Launch App** 
               
             - Launch from the Apps toolbar
             - Or type RIFF from the command line
@@ -44,7 +44,7 @@
             -   MATLAB R2022a+
            
 
-- Input data format
+- **Input data format**
 
       - Text-files (.txt,.csv) 
                   - Valid formats: {f a b}, {w a b}, {f a ib}, {w a ib}, {f a+ib}, {w a+ib}
@@ -60,7 +60,7 @@
       
       - LISA Technology Package Data Analysis (LTPDA) Analysis Object (AO)
 
-- Output
+- **Output**
 
          - FIT_RESULT Structure containing 
                    - Identified ZPK with the associated uncertainties  (FIT_RESULT.ZPK)
@@ -73,12 +73,12 @@
 
 
 
-- For command-line use (+finer control)
+- **For command-line use (+finer control)**
 
             - use fitTF.m
 
             
-- Developed to aid 
+- **Developed to aid** 
 
       - Design of control & calibration filters at gravitational wave (GW) observatories.
       
@@ -92,7 +92,7 @@
    
 
 
-- License
+- **License**
 
      [RIFF](https://github.com/Nikhil-Mukund/RIFF) is released under the terms of the [GNU General Public License v3.0.](https://github.com/Nikhil-Mukund/RIFF/blob/main/LICENSE)
 
@@ -123,7 +123,7 @@
 
 
 
-- Acknowledgements 
+- **Acknowledgements**
 
      > Evgeny Pr (2021). [INI Config](https://www.mathworks.com/matlabcentral/fileexchange/24992-ini-config), MATLAB Central File Exchange. Retrieved February 12, 2021.
      
@@ -133,11 +133,11 @@
     
     > Justin Dinale (2021). [SDF Importer](https://www.mathworks.com/matlabcentral/fileexchange/67513-sdf-importer), MATLAB Central File Exchange. Retrieved February 12, 2021.
     
-- Notes     
+- **Notes**     
 
-     > To use the Bayesian Adaptive Direct Search (BADS) optimizer, install it from [BADS-GitHub](https://github.com/lacerbi/bads) and add the folder to MATLAB search path.
+     > To use the Bayesian Adaptive Direct Search (BADS) optimizer, install it from [BADS-GitHub](https://github.com/lacerbi/bads) and add the folder to MATLAB search path. The app will automatically try to install it from the web, if it's not available.
      
-- Alternatives
+- **Alternatives**
 
      > [Vectfit MATLAB](https://www.sintef.no/projectweb/vectfit/)
      
