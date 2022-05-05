@@ -106,15 +106,15 @@
 
 
 ## Fit Multiple HP/Agilent/Keysight Spectrum Analyzer Measurements (SDF .DAT Format)
-# Use a Minimim Phase Design
+### Use a Minimim Phase Design
 ![Alt text](/tutorials/Keysight_Multiple_SDF_Files_MinPhase.gif)
 
 ## Fit workspace variables 
-# Note: tutorial was made using an older app version 
+### Note: tutorial was made using an older app version 
 ![Alt text](/tutorials/RIFF-tutorial-2.gif)
 
 ## Filter TimeSeries using the modeled the transfer function
-# Note: tutorial was made using an older app version 
+### Note: tutorial was made using an older app version 
 ![Alt text](/tutorials/RIFF-tutorial-4.gif)
 
 
