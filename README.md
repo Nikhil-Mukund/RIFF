@@ -2,18 +2,7 @@
 
 - **Generate robust IIR Zero-Pole-Gain filter models to match the measured transfer functions.**
 
-- To Install 
 
-            - Click & install using the mlappinstall file 
-
-- To Launch App 
-              
-            - Launch from the Apps toolbar
-            - Or type RIFF from the command line
-
-- Compatibility
-
-            -   MATLAB R2022a+
             
 - What's New!
 
@@ -40,6 +29,20 @@
 
       
       - Options to estimate the noise floor & dampen sharp resonances via smoothing the complex transfer function.
+
+- To Install 
+
+            - Click & install using the mlappinstall file 
+
+- To Launch App 
+              
+            - Launch from the Apps toolbar
+            - Or type RIFF from the command line
+
+- **Compatibility**
+
+            -   MATLAB R2022a+
+           
 
 - Input data format
 
