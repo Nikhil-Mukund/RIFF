@@ -1,8 +1,6 @@
 # RIFF: Robust IIR Fitting & Filtering
 
 - **Generate robust IIR Zero-Pole-Gain filter models to match the measured transfer functions.**
-
-
             
 - **What's New!**
 
@@ -11,6 +9,10 @@
       - Option to generate MINIMUM_PHASE models without any right-half plane zeros.
       - Option to account for input-output delays 
       - One click install
+
+![Alt text](/tutorials/RIFF_ScreenShot.png)
+
+
 
 - **Features**
 
