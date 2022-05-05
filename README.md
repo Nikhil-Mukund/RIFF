@@ -96,18 +96,18 @@
 # How to use RIFF WorkFlow
 
 ## Fit a text-file measurement 
-![Alt text](/tutorials/damped_transmission_FMINCON.mp4)
+![Alt text](/tutorials/damped_transmission_FMINCON.gif)
 
 ## Improve Fit using Bayesian Adaptive Direct Search 
-![Alt text](/tutorials/damped_transmission_BADS.mp4)
+![Alt text](/tutorials/damped_transmission_BADS.gif)
 
 ## Account for possible Input-Output Delay
-![Alt text](/tutorials/SysID_with_IOdelay.mp4.mp4)
+![Alt text](/tutorials/SysID_with_IOdelay.gif)
 
 
 ## Fit Multiple HP/Agilent/Keysight Spectrum Analyzer Measurements (SDF .DAT Format)
 # Use a Minimim Phase Design
-![Alt text](/tutorials/Keysight_Multiple_SDF_Files_MinPhase.mp4)
+![Alt text](/tutorials/Keysight_Multiple_SDF_Files_MinPhase.gif)
 
 ## Fit workspace variables 
 # Note: tutorial was made using an older app version 
