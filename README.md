@@ -107,8 +107,7 @@
 ## Filter TimeSeries using the modeled the transfer function
 ![Alt text](/tutorials/RIFF-tutorial-4.gif)
 
-## Fit with IO Delay
-![Alt text](/tutorials/SysID_with_IOdelay.mp4)
+
 
 
 - Acknowledgements 
