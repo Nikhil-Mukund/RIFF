@@ -10,6 +10,10 @@
               
             - Launch from the Apps toolbar
             - Or type RIFF from the command line
+
+- Compatibility
+
+            -   MATLAB R2022a+
             
 - What's New!
 
@@ -70,9 +74,6 @@
 
             - use fitTF.m
 
-- Compatibility
-
-            -   MATLAB R2022a+
             
 - Developed to aid 
 
@@ -92,19 +93,28 @@
 
      [RIFF](https://github.com/Nikhil-Mukund/RIFF) is released under the terms of the [GNU General Public License v3.0.](https://github.com/Nikhil-Mukund/RIFF/blob/main/LICENSE)
 
-# How to use RIFF
+# How to use RIFF WorkFlow
 
-## Fit a text-file
-![Alt text](/tutorials/RIFF-tutorial-1.gif)
+## Fit a text-file measurement 
+![Alt text](/tutorials/damped_transmission_FMINCON.mp4)
+
+## Improve Fit using Bayesian Adaptive Direct Search 
+![Alt text](/tutorials/damped_transmission_BADS.mp4)
+
+## Account for possible Input-Output Delay
+![Alt text](/tutorials/SysID_with_IOdelay.mp4.mp4)
+
+
+## Fit Multiple HP/Agilent/Keysight Spectrum Analyzer Measurements (SDF .DAT Format)
+# Use a Minimim Phase Design
+![Alt text](/tutorials/Keysight_Multiple_SDF_Files_MinPhase.mp4)
 
 ## Fit workspace variables 
+# Note: tutorial was made using an older app version 
 ![Alt text](/tutorials/RIFF-tutorial-2.gif)
 
-## Fit HP/Agilent/Keysight Spectrum Analyzer Measurements (SDF .DAT Format)
-![Alt text](/tutorials/RIFF-tutorial-3.gif)
-
-
 ## Filter TimeSeries using the modeled the transfer function
+# Note: tutorial was made using an older app version 
 ![Alt text](/tutorials/RIFF-tutorial-4.gif)
 
 
