@@ -114,6 +114,9 @@
 ### Use a Minimim Phase Design
 ![Alt text](/tutorials/Keysight_Multiple_SDF_Files_MinPhase.gif)
 
+## Implement Higher Order Fitting for systems with complex TFs
+![Alt text](/tutorials/Higher_Order_Fit.gif)
+
 ## Fit workspace variables 
 ### Note: tutorial was made using an older app version 
 ![Alt text](/tutorials/RIFF-tutorial-2.gif)
