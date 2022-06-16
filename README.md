@@ -13,6 +13,10 @@
 ![Alt text](/tutorials/RIFF_ScreenShot.png)
 
 
+- **Compatibility**
+
+            -   MATLAB R2022a+
+           
 
 - **Other Features**
 
@@ -41,10 +45,6 @@
             - Launch from the Apps toolbar
             - Or type RIFF from the command line
 
-- **Compatibility**
-
-            -   MATLAB R2022a+
-           
 
 - **Input data format**
 
