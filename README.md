@@ -14,7 +14,7 @@
 
 
 
-- **Features**
+- **Other Features**
 
       - Uses the chosen optimizer to find the best parameters (see below) that maximizes the goodness of fit.
                         - filter order
