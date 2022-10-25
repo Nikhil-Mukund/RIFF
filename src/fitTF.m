@@ -175,7 +175,7 @@
 %    23rd Feb 2021:  Added-> Fill missing values (NaNs) in processed TF  with interpolated values
 %
 %    28th Apr 2022:  -> Added minimum-phase state-space model fitting using log-Chebyshev magnitude design
-%                    -> Supports possible SysID with IODelay 
+%                    -> Supports possible SysID with IODelay
 % COMPATIBILITY: MATLAB R2018b+
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -252,7 +252,7 @@ INTERP_FRD   = 1;      % Auto-Decrease the number of samples to 1000 samples
 ENFORCE_MINIMUM_PHASE = 0; % Prevents Right-Half Plane Zeros
 SMOOTH_WIN_LEN = 100;% Moving Mean Window length (only used when SMOOTH_LEVEL==7)
 INTERP_FRD_THRESH = 1e4; % Downsample FRD if samples higher than this value
-FIT_WEIGHT_FROM_PHASE_SMOOTHNESS = 0; % 
+FIT_WEIGHT_FROM_PHASE_SMOOTHNESS = 0; %
 
 % Other Default Params
 WtMin = 1;
@@ -326,7 +326,7 @@ if READ_CONFIG == 1
             end
         end
     end
-    
+
 end
 
 % Check for User provided parameters
@@ -385,7 +385,7 @@ for k= 1:2:length(varargin)
         case {'USE_PARALLEL'}
             USE_PARALLEL = varargin{k+1};
         case {'ENFORCE_MINIMUM_PHASE'}
-            ENFORCE_MINIMUM_PHASE = varargin{k+1};            
+            ENFORCE_MINIMUM_PHASE = varargin{k+1};
         case {'OPTIMIZER'}
             OPTIMIZER = upper(varargin{k+1});
         case {'SMOOTH_LEVEL'}
@@ -464,7 +464,7 @@ for k= 1:2:length(varargin)
         case {'DESIRED_MODEL_ORDER'}
             DESIRED_MODEL_ORDER = double(varargin{k+1});
             ROUTINE  = 1:2;
-        case {'INCLUDE_IODELAY'}   
+        case {'INCLUDE_IODELAY'}
             INCLUDE_IODELAY = varargin{k+1};
     end
 end
@@ -487,7 +487,7 @@ if MATLAB_APP_TOGGLE == 1
                 %                 if ~contains(FIELDS{ijk},'Label')
                 %                     feval(@()assignin('caller', extractBefore(FIELDS{ijk},{'TextArea'}),APP.(FIELDS{ijk}).Value{1}));
                 %                 end
-                
+
                 % USE CheckBox VALUE FROM APP
             elseif contains(class(APP.(FIELDS{ijk})),'CheckBox')
                 if ~contains(FIELDS{ijk},'Label')
@@ -534,7 +534,7 @@ if exist('surrogateopt','file') ~= 2
             return
         end
     end
-    
+
 end
 
 
@@ -542,9 +542,9 @@ end
 if exist('FNAME','var')
     disp('Attempting to read file...')
     FILE = readtable(FNAME,'ReadVariableNames',0);
-    
-    
-    
+
+
+
     % Get Frequency & TF from the loaded file by checking the format
     if exist('FORMAT','var')
         if strcmpi(FORMAT,'f a+ib') || strcmpi(FORMAT,'f,a+ib')
@@ -580,8 +580,8 @@ if exist('FNAME','var')
             TF = FILE.Var2;
         end
     end
-    
-    
+
+
     % to prevent errors arising from f(1)==0
     if f(1)==0
         fprintf('Zeroth frequency term removed to prevent unexpected behavior.\n')
@@ -616,7 +616,7 @@ if exist('TS1','var') && exist('TS2','var')
     end
     % Match sampling rates
     [TS1,TS2,FS] = vectorMatch(TS1,FS1,TS2,FS2);
-    
+
     % Do some checks on BW & NFFT
     NFFT = FS/BW;
     if ~exist('BW','var')
@@ -628,21 +628,21 @@ if exist('TS1','var') && exist('TS2','var')
     if NFFT > numel(TS1)
         NFFT = numel(TS1);
     end
-    
-    
-    
+
+
+
     % Get Transfer Function
     disp('Estimating transfer function from time series data...')
     if strcmp(TS_SCHEME, "tfestimate")
-         
-    
+
+
         [TF,f] = tfestimate(TS1,TS2,hanning(NFFT),NFFT/2,NFFT,FS);
         disp('Estimating magnitude squared coherence...')
         [cohWeight] = mscohere(TS1,TS2,hanning(NFFT),NFFT/2,NFFT,FS);
-    
+
     end
-    
-    
+
+
 end
 
 
@@ -683,14 +683,14 @@ if INTERP_FRD
     % Only decrease if freq span > 100 Hz.
     if (F_FINAL - F_INITIAL) > 100
         if numel(f) > INTERP_FRD_THRESH
-        fprintf('Auto-Decreasing the number of samples to 1000 samples from %d samples\n',numel(f))
-        FRD_temp = frd(TF,2*pi*f);
-        freq_rs = logspace(log10(min(f+eps)),log10(max(f)),1000);
-        FRD_temp_rs = interp(FRD_temp,2*pi*freq_rs);
-        TF = squeeze(FRD_temp_rs.ResponseData);
-        f = freq_rs(:);
+            fprintf('Auto-Decreasing the number of samples to 1000 samples from %d samples\n',numel(f))
+            FRD_temp = frd(TF,2*pi*f);
+            freq_rs = logspace(log10(min(f+eps)),log10(max(f)),1000);
+            FRD_temp_rs = interp(FRD_temp,2*pi*freq_rs);
+            TF = squeeze(FRD_temp_rs.ResponseData);
+            f = freq_rs(:);
         else
-           fprintf('Freq samples: %d. INTERP_FRD sample threshold: %d\n',numel(f),INTERP_FRD_THRESH)
+            fprintf('Freq samples: %d. INTERP_FRD sample threshold: %d\n',numel(f),INTERP_FRD_THRESH)
         end
     end
 end
@@ -786,25 +786,25 @@ elseif SMOOTH_LEVEL == 4
     TF = csaps(f,TF,0.005,f);
 elseif SMOOTH_LEVEL == 5
     disp('Smoothing frequency response via logMovingAverage Smoothing');
-    
+
     try
         TF_ini = TF;
         TF = logAverager(TF, 1-1e-2);
     catch exception
         disp(getReport(exception))
     end
-    
+
     try
         TF = mov_avg(TF);
     catch exception
         disp(getReport(exception))
     end
-    
+
     if isnan(sum(TF)) || sum(TF)==0 || sum(TF)==Inf
         disp('Error in logMovingAverage smoothing, no smoothing applied...')
         TF = TF_ini;
     end
-    
+
 elseif SMOOTH_LEVEL == 6
     disp('Smoothing frequency response via filloutliers technique');
     fillMethod = 'makima';
@@ -812,7 +812,7 @@ elseif SMOOTH_LEVEL == 6
     zoutR = filloutliers(real(TF),fillMethod,'percentiles',threshold) ;
     zoutI = filloutliers(imag(TF),fillMethod,'percentiles',threshold);
     TF = zoutR + 1i*zoutI;
-    
+
 elseif SMOOTH_LEVEL == 7
     if SMOOTH_WIN_LEN > 0
         FRD=frd(movmean(TF,round(SMOOTH_WIN_LEN)),2*pi*f);
@@ -847,29 +847,29 @@ end
 if PREVIEW_BODEPLOT_TOGGLE==1
     preview_bodeplot(BO,FIG_HANDLE,frd(TF_orig,2*pi*f_orig),frd(TF,2*pi*f),APP);
     FIT=[];
-    close(FIG_TEMP);
+        close(FIG_TEMP);
 else
-    
-    
+
+
     % Define cost function
     rf = @(Params)fitTF_costFunc(f,TF,Params); % objective
-    
+
     gof = -inf;
     gof_reduced_order_best = -inf;
-    
-    
+
+
     for trial = 1:NUM_TRIALS
-        
+
         % Check if StopExecutionButton State changed within the App
         if MATLAB_APP_TOGGLE == 1
             if APP.StopExecutionButton.Value==1
                 return;
             end
         end
-        
-        
+
+
         fprintf('Executing trial %d of %d \n',trial,NUM_TRIALS)
-        
+
         % Initial Guess
         if ~exist('GUESS','var')
             %x0 = 0.5*(lb+ub); % Start
@@ -891,17 +891,17 @@ else
                 x0 = GUESS;
             end
         end
-        
-        
+
+
         % Fit a rational function (Vector Fitting with Surrogate Optimization)
-        
+
         if strcmp(OPTIMIZER,'SURROGATE')
             % Optimization Options
             opts = optimoptions('surrogateopt','PlotFcn',[]);
             opts.MaxFunctionEvaluations = FUNC_EVAL;
             opts.UseParallel            = USE_PARALLEL;
             opts.Display                = OPTIMIZER_DISPLAY_LEVEL;
-            
+
             disp('Performing surrogate optimization...')
             [xsur,~,~,~] = surrogateopt(rf,lb,ub,opts);
             disp('Performing additional local minima search using PATTERNSEARCH Search')
@@ -909,42 +909,42 @@ else
                 xsur = x0;
             end
             [xsur]       = patternsearch(rf,xsur,[],[],[],[],lb,ub,[],opts);
-            
+
         elseif strcmp(OPTIMIZER,'PSO')
             % Optimization Options
             opts = optimoptions('particleswarm','SwarmSize',200,'HybridFcn',@fmincon,'PlotFcn',[]);
             opts.MaxIterations = FUNC_EVAL;
             opts.UseParallel            = USE_PARALLEL;
             opts.Display                =  OPTIMIZER_DISPLAY_LEVEL;
-            
+
             disp('Performing particle swarm optimization...')
             [xsur]       = particleswarm(rf,length(lb),lb,ub,opts);
             disp('Performing additional local minima search using Pattern Search')
             [xsur]       = patternsearch(rf,xsur,[],[],[],[],lb,ub,[],opts);
-            
-            
+
+
         elseif strcmp(OPTIMIZER,'PATTERNSEARCH')
             % Optimization Options
             opts = optimoptions('patternsearch','PlotFcn',[]);
             opts.MaxFunctionEvaluations = FUNC_EVAL;
             opts.UseParallel            = USE_PARALLEL;
             opts.Display                =  OPTIMIZER_DISPLAY_LEVEL;
-            
+
             disp('Performing pattern search optimization...')
             [xsur]       = patternsearch(rf,x0,[],[],[],[],lb,ub,[],opts);
-            
+
         elseif strcmp(OPTIMIZER,'FMINCON')
             % Optimization Options
             opts = optimoptions('fmincon','PlotFcn',[]);
             opts.MaxFunctionEvaluations = FUNC_EVAL;
             opts.UseParallel            = USE_PARALLEL;
             opts.Display                =  OPTIMIZER_DISPLAY_LEVEL;
-            
+
             disp('Performing fmincon search optimization...')
             [xsur]       = fmincon(rf,x0,[],[],[],[],lb,ub,[],opts);
-            
+
         elseif strcmp(OPTIMIZER,'BADS')
-            
+
             % Install BADS if it doesn't exist
             if ~exist('bads','file')
                 fprintf('Installing BADS optimizer...\n')
@@ -952,31 +952,31 @@ else
                 unzip(outfilename,'bads');
                 addpath('bads/bads-master/')
             end
-            
+
             % Optimization Options
             opts = bads;
             opts.MaxFunEvals = FUNC_EVAL;
             opts.UseParallel            = USE_PARALLEL;
             opts.Display                =  OPTIMIZER_DISPLAY_LEVEL;
-            
+
             disp('Performing BADS (Bayesian ADaptive Search) optimization...')
             [xsur]       = bads(rf,x0,lb,ub,[],[],[],opts);
         end
-        
-        
-        
+
+
+
         % Get Bestfit Model
         [~,modelSYS] = fitTF_costFunc(f,TF,xsur);
         [z,p,k] = zpkdata(modelSYS,'v');
         IODelay = modelSYS.IODelay;
-        
-        
+
+
         if ESTIMATE_UNCERTAINITY ~= 1
             % Damp unphysical resonances
             reso_thesh = 1e-4;
             p = cplxpair(p);
             RIDX = logical((abs(real(p)) < reso_thesh).*(abs(imag(p))>0)) ;
-            
+
             try
                 if ~isempty(RIDX)
                     %disp('Modeled response likely to have unphysical resonances...')
@@ -996,20 +996,20 @@ else
                 disp(getReport(exception))
             end
         end
-        
+
         % Select region to fit
         ID = logical(f >= xsur(2)).*logical(f <= xsur(3));
         % ID = ones(size(ff));
-        
+
         TF_trun    = TF(logical(ID));
         ff_trun    = f(logical(ID));
         % Generate FRD Model
         SYS_orig   = frd(TF_orig,f_orig*2*pi);
         SYS        = frd(TF,f*2*pi);
         trunSYS    = frd(TF_trun,ff_trun*2*pi);
-        
-        
-        
+
+
+
         % Use MINREAL to cancel zeros & poles
         if ESTIMATE_UNCERTAINITY ~= 1
             try
@@ -1018,7 +1018,7 @@ else
                 disp(getReport(exception))
             end
         end
-        
+
         MODEL_ORDER = order(modelSYS);
         % Reduce model to the desired order using BALRED
         if ~isempty(DESIRED_MODEL_ORDER) && ESTIMATE_UNCERTAINITY ~= 1
@@ -1037,36 +1037,36 @@ else
             catch exception
                 disp(getReport(exception));
             end
-            
+
         end
-        
+
         % extract ZPK from the model
         [z,p,k,~,zcov,pcov,kcov] = zpkdata(modelSYS);
-        
-        
+
+
         z = cell2mat(z);
         p = cell2mat(p);
-        
+
         z_sigma =  unpack_zpk_covariance_matrix(z,zcov);
         p_sigma =  unpack_zpk_covariance_matrix(p,pcov);
         k_sigma = sqrt(kcov);
-        
-        
+
+
         % Goodness of fit btw measured & modeled response
         %[~,gof_trial,~] = compare(trunSYS,modelSYS);
         [~,gof_trial] = compareSYS(trunSYS,modelSYS);
         fprintf('Trial %d -> goodness of fit (gof) = %0.2f %s\n',trial,gof_trial,'%')
         fprintf('Previous best goodness of fit (gof) = %0.2f %s\n',gof,'%')
-        
-        
-        
+
+
+
         % this criterion was added to prevent some errors
         if ~(sum(real(p) > 0) > 0) && ENFORCE_STABILITY==1 && ENFORCE_MINIMUM_PHASE==0
-            
+
             % Use PZCANCEL [NOT USED]
             %[z_ro,p_ro,k_ro] = pzcancel(z,p,k,PZTOL);
             %modelSYS_reducedOrder = zpk(z_ro,p_ro,k_ro);
-            
+
             FIT.intermediate(trial).ZPK.z = z;
             FIT.intermediate(trial).ZPK.p = p;
             FIT.intermediate(trial).ZPK.k = k;
@@ -1079,7 +1079,7 @@ else
             FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
             FIT.intermediate(trial).FRD_Model.truncated_measurement = trunSYS;
             %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;
-            
+
             % parameterCovarianceMatrix
             if ESTIMATE_UNCERTAINITY==1
                 if isfield(modelSYS.UserData,'CovarianceMatrix')
@@ -1090,8 +1090,8 @@ else
             else
                 FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = [];
             end
-            
-            
+
+
             if gof_trial > gof
                 fprintf('Better solution (gof = %0.2f %s) obtained. Updating best fit parameters...\n',gof_trial,'%')
                 x0_best      = x0;
@@ -1136,9 +1136,9 @@ else
                 make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS, modelSYS_best);
             end
             FIG_HANDLE_VISIBILITY=FIG_HANDLE_VISIBILITY_ORIG;
-            
+
         elseif  ENFORCE_STABILITY~=1
-            
+
             % Use PZCANCEL [NOT USED]
             %[z_ro,p_ro,k_ro] = pzcancel(z,p,k,PZTOL);
             %modelSYS_reducedOrder = zpk(z_ro,p_ro,k_ro);
@@ -1152,9 +1152,9 @@ else
             FIT.intermediate(trial).GOF = gof_trial;
             FIT.intermediate(trial).ORDER = order(modelSYS);
             FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
-            FIT.intermediate(trial).FRD_Model.truncated_measurement = trunSYS;            
+            FIT.intermediate(trial).FRD_Model.truncated_measurement = trunSYS;
             %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;
-            
+
             % parameterCovarianceMatrix
             if ESTIMATE_UNCERTAINITY==1
                 if isfield(modelSYS.UserData,'CovarianceMatrix')
@@ -1165,7 +1165,7 @@ else
             else
                 FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = [];
             end
-            
+
             if gof_trial > gof
                 fprintf('Better solution (gof = %0.2f %s) obtained. Updating best fit parameters...\n',gof_trial,'%')
                 x0_best      = x0;
@@ -1173,7 +1173,7 @@ else
                 z_best       = z;
                 p_best       = p;
                 k_best       = k;
-                IODelay_best = IODelay;                
+                IODelay_best = IODelay;
                 z_best_sigma       = z_sigma;
                 p_best_sigma       = p_sigma;
                 k_best_sigma       = k_sigma;
@@ -1191,13 +1191,13 @@ else
                     z_best       = z;
                     p_best       = p;
                     k_best       = k;
-                    IODelay_best = IODelay;                    
+                    IODelay_best = IODelay;
                     z_best_sigma       = z_sigma;
                     p_best_sigma       = p_sigma;
                     k_best_sigma       = k_sigma;
                     modelSYS_best = modelSYS;
                     %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
-                    trunSYS_best  = trunSYS;               
+                    trunSYS_best  = trunSYS;
                     gof          = gof_trial;
                     best_trial   = trial;
                 end
@@ -1210,33 +1210,33 @@ else
                 make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS, modelSYS_best);
             end
             FIG_HANDLE_VISIBILITY=FIG_HANDLE_VISIBILITY_ORIG;
-            
-            
+
+
         elseif ~(sum(real(p) > 0) > 0) && ENFORCE_STABILITY==1 && ENFORCE_MINIMUM_PHASE==1
-            
+
             % Proceed only if no +ve Zeros are present (MINIMUM PHASE SYSTEMS)
             if ~sum(real(z) > 0 ) > 0 %~sum(z(imag(z)==0) > 0 ) > 0
-                
-                
-                
+
+
+
                 % Use PZCANCEL [NOT USED]
                 %[z_ro,p_ro,k_ro] = pzcancel(z,p,k,PZTOL);
                 %modelSYS_reducedOrder = zpk(z_ro,p_ro,k_ro);
-                
+
                 FIT.intermediate(trial).ZPK.z = z;
                 FIT.intermediate(trial).ZPK.p = p;
                 FIT.intermediate(trial).ZPK.k = k;
                 FIT.intermediate(trial).ZPK.z_sigma = z_sigma;
                 FIT.intermediate(trial).ZPK.p_sigma = p_sigma;
                 FIT.intermediate(trial).ZPK.k_sigma = k_sigma;
-                FIT.intermediate(trial).IODelay = IODelay;               
+                FIT.intermediate(trial).IODelay = IODelay;
                 FIT.intermediate(trial).GOF = gof_trial;
                 FIT.intermediate(trial).ORDER = order(modelSYS);
                 FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
                 FIT.intermediate(trial).FRD_Model.truncated_measurement = trunSYS;
-                
+
                 %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;
-                
+
                 % parameterCovarianceMatrix
                 if ESTIMATE_UNCERTAINITY==1
                     if isfield(modelSYS.UserData,'CovarianceMatrix')
@@ -1247,8 +1247,8 @@ else
                 else
                     FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = [];
                 end
-                
-                
+
+
                 if gof_trial > gof
                     fprintf('Better solution (gof = %0.2f %s) obtained. Updating best fit parameters...\n',gof_trial,'%')
                     x0_best      = x0;
@@ -1274,13 +1274,13 @@ else
                         z_best       = z;
                         p_best       = p;
                         k_best       = k;
-                        IODelay_best = IODelay;                       
+                        IODelay_best = IODelay;
                         z_best_sigma       = z_sigma;
                         p_best_sigma       = p_sigma;
                         k_best_sigma       = k_sigma;
                         modelSYS_best = modelSYS;
                         %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
-                        trunSYS_best  = trunSYS;                
+                        trunSYS_best  = trunSYS;
                         gof          = gof_trial;
                         best_trial   = trial;
                     end
@@ -1293,9 +1293,9 @@ else
                     make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS, modelSYS_best);
                 end
                 FIG_HANDLE_VISIBILITY=FIG_HANDLE_VISIBILITY_ORIG;
-                
+
             elseif  ENFORCE_STABILITY~=1
-                
+
                 % Use PZCANCEL [NOT USED]
                 %[z_ro,p_ro,k_ro] = pzcancel(z,p,k,PZTOL);
                 %modelSYS_reducedOrder = zpk(z_ro,p_ro,k_ro);
@@ -1305,13 +1305,13 @@ else
                 FIT.intermediate(trial).ZPK.z_sigma = z_sigma;
                 FIT.intermediate(trial).ZPK.p_sigma = p_sigma;
                 FIT.intermediate(trial).ZPK.k_sigma = k_sigma;
-                FIT.intermediate(trial).IODelay = IODelay;               
+                FIT.intermediate(trial).IODelay = IODelay;
                 FIT.intermediate(trial).GOF = gof_trial;
                 FIT.intermediate(trial).ORDER = order(modelSYS);
                 FIT.intermediate(trial).FRD_Model.modeled = modelSYS;
-                FIT.intermediate(trial).FRD_Model.truncated_measurement = trunSYS;                
+                FIT.intermediate(trial).FRD_Model.truncated_measurement = trunSYS;
                 %FIT.intermediate(trial).FRD_Model.modeled_reducedOrder = modelSYS_reducedOrder;
-                
+
                 % parameterCovarianceMatrix
                 if ESTIMATE_UNCERTAINITY==1
                     if isfield(modelSYS.UserData,'CovarianceMatrix')
@@ -1322,7 +1322,7 @@ else
                 else
                     FIT.intermediate(trial).ZPK.parameterCovarianceMatrix = [];
                 end
-                
+
                 if gof_trial > gof
                     fprintf('Better solution (gof = %0.2f %s) obtained. Updating best fit parameters...\n',gof_trial,'%')
                     x0_best      = x0;
@@ -1330,13 +1330,13 @@ else
                     z_best       = z;
                     p_best       = p;
                     k_best       = k;
-                    IODelay_best = IODelay;                    
+                    IODelay_best = IODelay;
                     z_best_sigma       = z_sigma;
                     p_best_sigma       = p_sigma;
                     k_best_sigma       = k_sigma;
                     modelSYS_best = modelSYS;
                     %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
-                    trunSYS_best  = trunSYS;                   
+                    trunSYS_best  = trunSYS;
                     gof          = gof_trial;
                     best_trial   = trial;
                     % accept if model order is less but has the same GOF
@@ -1348,13 +1348,13 @@ else
                         z_best       = z;
                         p_best       = p;
                         k_best       = k;
-                        IODelay_best = IODelay;                     
+                        IODelay_best = IODelay;
                         z_best_sigma       = z_sigma;
                         p_best_sigma       = p_sigma;
                         k_best_sigma       = k_sigma;
                         modelSYS_best = modelSYS;
                         %modelSYS_best_reducedOrder = modelSYS_reducedOrder;
-                        trunSYS_best  = trunSYS;                    
+                        trunSYS_best  = trunSYS;
                         gof          = gof_trial;
                         best_trial   = trial;
                     end
@@ -1367,17 +1367,17 @@ else
                     make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS, modelSYS_best);
                 end
                 FIG_HANDLE_VISIBILITY=FIG_HANDLE_VISIBILITY_ORIG;
-                
-                
+
+
             else
                 fprintf('Trial %d has zeros with +ve real part -> NON_MINIMUM_PHASE -> skipping...  \n',trial)
             end
-            
+
         else
             fprintf('Trial %d has poles with +ve real part -> UNSTABLE -> skipping...  \n',trial)
         end
         fprintf(' \n')
-        
+
         % increase MAX_POLES if gof_trial is not increasing
         if ATTAIN_GOF == 1
             if mod(trial,POLE_UPDATE_TRIAL)==0
@@ -1392,18 +1392,18 @@ else
                 end
             end
         end
-        
-        
+
+
     end
-    
+
     fprintf('Final goodness fo fit (focus region) = %0.3f %s\n',gof,'%')
-    
-    
+
+
     % Get current date & time
     fID = strrep(string(datetime),':','_');
     fID = strrep(fID,'-','_');
     fID = strrep(fID,' ','_');
-    
+
     % Get Username
     fullname  = 'unknown';
     try
@@ -1415,25 +1415,25 @@ else
     catch exception
         disp(getReport(exception))
     end
-    
+
     % Weight Filter options
     WtFilter = ["EQUAL","ABSOLUTE","INVERSE","INVERSE_SQUARE_ROOT","CUSTOM"];
-    
+
     % Fit Routines
     Routines = ["rationalfit","tfest","invfreqs","fitmagfrd"];
-    
+
     % Check if atleast one solution was found else return & disp status
     if ~exist('p_best','var')
         fprintf('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n')
         fprintf('Unable to find a solution with the given settings.\n')
         fprintf('Relax some of the specified settings. (Ex. Set INCLUDE_DELAY=0)\n')
-        fprintf('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n')        
+        fprintf('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n')
         FIT=[];
         close(FIG_TEMP);
         return
     end
-    
-    
+
+
     % Create FIT Structure [OUTPUT]
     FIT.ZPK.z = z_best;
     FIT.ZPK.p = p_best;
@@ -1442,7 +1442,7 @@ else
     FIT.ZPK.z_sigma = z_best_sigma;
     FIT.ZPK.p_sigma = p_best_sigma;
     FIT.ZPK.k_sigma = k_best_sigma;
-    
+
     % parameterCovarianceMatrix
     if ESTIMATE_UNCERTAINITY==1
         if isfield(modelSYS_best.UserData,'CovarianceMatrix')
@@ -1453,43 +1453,43 @@ else
     else
         FIT.ZPK.parameterCovarianceMatrix = [];
     end
-    
-    
+
+
     FIT.gof = gof;
-    
+
     FIT.frequency.measured = f_orig;
     FIT.frequency.truncated = ff_trun;
-    
+
     FIT.transferFunction.measured = TF_orig;
     FIT.transferFunction.measured_smoothed = TF;
     FIT.transferFunction.truncated = TF_trun;
-    
+
     FIT.FRD_Model.measured_original = SYS_orig;
     FIT.FRD_Model.measured_smoothed = SYS;
     FIT.FRD_Model.truncated         = trunSYS_best;
     FIT.FRD_Model.modeled           = modelSYS_best;
-    
+
     % add reduced order model
     [~,temp_p_3] = zpkdata(modelSYS_best,'v');
-    
+
     if exist('modelSYS_best_reducedOrder','var')
         [~,temp_p_4] = zpkdata(modelSYS_best_reducedOrder,'v');
         if length(temp_p_4) < length(temp_p_3)
             fprintf('model order reduction possible from %d -> %d poles \n',length(modelSYS.P{:}), length(modelSYS_best_reducedOrder.P{:}))  ;
             FIT.FRD_Model.modeled_reducedOrder =  modelSYS_best_reducedOrder;
-            
+
             [z_ro,p_ro,k_ro,z_ro_cov,p_ro_cov,k_ro_cov] = zpkdata(modelSYS_best_reducedOrder);
-            
+
             FIT.ZPK_Reduced_Order.z = z_ro{:};
             FIT.ZPK_Reduced_Order.p = p_ro{:};
             FIT.ZPK_Reduced_Order.k = k_ro(1);
             FIT.ZPK_Reduced_Order.z_sigma = z_ro_cov;
             FIT.ZPK_Reduced_Order.p_sigma = p_ro_cov;
             FIT.ZPK_Reduced_Order.k_sigma = k_ro_cov;
-            
+
         end
     end
-    
+
     FIT.options.BodeOptions = BO;
     FIT.options.PLOT_TOGGLE = PLOT_TOGGLE;
     FIT.options.SAVE_TOGGLE = SAVE_TOGGLE;
@@ -1517,7 +1517,7 @@ else
     FIT.options.Optimization.FINAL_WEIGHTING_FILTER = WtFilter(round(xsur_best(5)));
     FIT.dateTime = fID;
     FIT.userName = string(fullname);
-    
+
     % if strcmp(FIT.options.Optimization.FINAL_FIT_ROUTINE,"tfest")
     %     disp('Estimating model uncertainities...')
     %     [num,den,Ts,sdnum,sdden] = tfdata(FIT.FRD_Model.modeled);
@@ -1527,12 +1527,12 @@ else
     %     FIT.tfdata.sdnum = cell2mat(sdnum);
     %     FIT.tfdata.sdden = cell2mat(sdden);
     % end
-    
+
     % Add CUSTOM_WEIGHT to FIT (if provided)
     if WtMax == 5
         FIT.options.CUSTOM_WEIGHT = cohWeight;
     end
-    
+
     % try
     % Save input command used to generate the results
     FIT_STR = repmat('"%s",',1,numel(varargin));
@@ -1566,17 +1566,17 @@ else
     % catch exception
     %     disp(getReport(exception))
     % end
-    
-    
-    
-    
+
+
+
+
     BO.XLim = [FIT.options.Optimization.F_Start/2,FIT.options.Optimization.F_Stop*2];
-    
-    
-    
-    
+
+
+
+
     if PLOT_TOGGLE
-        
+
         BO.Title.String = sprintf('Bode Plot');
         BO.Title.FontSize = 15;
         if exist('modelSYS_best_reducedOrder','var')
@@ -1584,11 +1584,11 @@ else
         else
             make_plot(BO,SYS_orig,SYS,trunSYS_best,modelSYS_best,modelSYS_best);
         end
-        
+
         if SAVE_TOGGLE
-            
+
             disp('Saving results...')
-            
+
             if strcmp(SAVETO,'./Saved_Models')
                 if ~exist('Saved_Models','dir')
                     mkdir('Saved_Models');
@@ -1596,31 +1596,31 @@ else
             else
                 mkdir(SAVETO);
             end
-            
+
             if exist('SAVEAS','var')
                 fID = string(SAVEAS)+"_"+string(fID);
             end
-            
+
             FolderName = sprintf('%s/%s',SAVETO,fID);
             mkdir(FolderName)
-            
+
             fileName = sprintf('%s/FIT.mat',FolderName);
             foton_sos_fileName = sprintf('%s/foton_sos_filter.txt',FolderName);
             foton_sos_fileName_reducedOrder = sprintf('%s/foton_sos_filter_reducedOrder.txt',FolderName);
             figName = sprintf('%s/bode_plot.fig',FolderName);
             imageName = sprintf('%s/bode_plot.png',FolderName);
-            
-            
+
+
             save(fileName,'FIT')
             savefig(gcf,figName)
-            
+
             % Use exportgraphics function (if available)
             if exist('exportgraphics','file') == 6
                 exportgraphics(gcf,imageName);
             else
                 saveas(gcf,imageName)
             end
-            
+
             % Save FOTON Compatible SOS Filter
             fprintf(' \n')
             disp("Generating FOTON Compatible SOS Filter...")
@@ -1640,10 +1640,10 @@ else
                 disp(getReport(exception))
                 disp("FOTON Compatible SOS filter not generated.")
             end
-            
+
         end
     end
-    
+
     % Check if system is stable or not
     if sum(real(FIT.ZPK.p) > 0) > 0
         beep
@@ -1657,16 +1657,16 @@ else
     else
         disp('Execution complete.')
     end
-    
+
     % CLEAR UP PERSISTENT VARIABLES
     clear FIG_HANDLE
-    
-    
+
+
     toc
-    
-    
+
+
     disp('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% FIT Results %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
-    
+
     dispayStruct.z       = FIT.ZPK.z;
     dispayStruct.p       = FIT.ZPK.p;
     dispayStruct.k       = FIT.ZPK.k;
@@ -1675,16 +1675,16 @@ else
     dispayStruct.k_sigma = FIT.ZPK.k_sigma;
     dispayStruct.gof     = FIT.gof;
     celldisp(struct2cell(dispayStruct),'FIT results:[{1}->Zeros,{2}->Poles,{3}->Gain,{4}->z_sigma,{5}->p_sigma,{6}->k_sigma,{7}->GOF(%)] ');
-    
+
     disp('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
-    
+
     % close temp fig
     if exist('FIG_TEMP','var')
         if ishandle(FIG_TEMP)
             close(FIG_TEMP);
         end
     end
-    
+
     % include variables from APP to FIT structure
     FIT.APP = APP;
 
@@ -1706,31 +1706,31 @@ end
 % Last Modified:
 %      1st May 2019
     function[residual,modelSYS] =  fitTF_costFunc(ff,TF,Params)
-        
-        
-        
-        
+
+
+
+
         % Disable warning
         warning('off','all');
-        
+
         NUM_POLES = round(Params(1));
         F_INITIAL0 = Params(2);
         F_FINAL0   = Params(3);
         FIT_ROUTINE = round(Params(4));
         WEIGHT      = round(Params(5));
-        
+
         % Select region to fit
         ID0 = logical(ff >= F_INITIAL0).*logical(ff <= F_FINAL0);
-        
+
         TF_trun0    = TF(logical(ID0));
         ff_trun0    = ff(logical(ID0));
-        
-        
-        
+
+
+
         % Generate FRD Model
         trunSYS0    = frd(TF_trun0,ff_trun0*2*pi);
-        
-        
+
+
         % Weighting Filter
         if WEIGHT == 1
             Wt = ones(size(TF_trun0));
@@ -1743,7 +1743,7 @@ end
         elseif WEIGHT == 5
             Wt = cohWeight(logical(ID0));
         end
-        
+
         % tfest options
         tfestOpt = tfestOptions(...
             'EnforceStability',ENFORCE_STABILITY,...
@@ -1751,16 +1751,16 @@ end
             'WeightingFilter',Wt,...
             'Display','off',...
             'EstimateCovariance',1);
-        
-        
-        
+
+
+
         if FIT_ROUTINE == 1
-            
+
             % Fit a rational function (Vector Fitting)
             fit  =  rationalfit(ff_trun0,TF_trun0,'Npoles',NUM_POLES,'Weight',Wt);
             [b,a] = residue (fit.C,fit.A,fit.D);
             modelSYS = tf(real (b),a);
-            
+
         elseif FIT_ROUTINE == 2
 
             if INCLUDE_IODELAY == 1
@@ -1768,7 +1768,7 @@ end
             else
                 iodelay_flag = [];
             end
-            
+
             % Fit using tfest
             if isempty(NUM_ZEROS)
                 modelSYS = tfest(trunSYS0,NUM_POLES,NUM_POLES,iodelay_flag,tfestOpt);
@@ -1776,12 +1776,12 @@ end
                 % Use min(NUM_POLES,NUM_ZEROS) for NUM_ZEROS
                 modelSYS = tfest(trunSYS0,NUM_POLES,min(NUM_POLES,NUM_ZEROS),iodelay_flag,tfestOpt);
             end
-            
+
             % ESTIMATE_UNCERTAINITY
             [zz,pp,~] = zpkdata(modelSYS,'v');
             try
                 VALUE = getcov(modelSYS,'FACTORS','free');
-                
+
                 np = length(VALUE.Free); % size of covariance matrix
                 CovarianceMatrix = zeros(np);
                 CovarianceMatrix(VALUE.Free, VALUE.Free) = VALUE.T*(VALUE.R'*VALUE.R)\(VALUE.T');
@@ -1796,42 +1796,42 @@ end
                 catch EXCEPTION
                     disp(getReport(EXCEPTION))
                 end
-                
+
             catch EXCEPTION
                 disp(getReport(EXCEPTION))
                 fprintf('Unable to calculate the associated uncertainity. \n')
             end
-            
+
         elseif FIT_ROUTINE == 3
-            
+
             % Fit using invfreqs
             [b,a] = invfreqs(TF_trun0,ff_trun0*2*pi,NUM_POLES,NUM_POLES,Wt,1e3,1e-11);
             modelSYS = tf(real (b),a);
 
         elseif FIT_ROUTINE == 4
-            
+
             % Fit using fitmagfrd using
             %   minimum-phase state-space model using log-Chebyshev magnitude design
             modelSYS = fitmagfrd(trunSYS0,NUM_POLES);
 
         end
-        
+
         % Get MAG & PHS of measured system
         [MAG_o,PHS_o,W_o] = bode(trunSYS0);
         MAG_o = squeeze(MAG_o);
         PHS_o = squeeze(PHS_o);
-        
+
         % Get MAG & PHS of modeled system
         [MAG_m,PHS_m] = bode(modelSYS,W_o);
         MAG_m = squeeze(MAG_m);
         PHS_m = squeeze(PHS_m);
-        
-        
+
+
         % Goodness of fit btw measured & modeled response
         compareArray = @(x,y) norm(x - y)./norm(x - mean(x));
         % A a weighting function
         %compareArray = @(x,y) norm((x - y).*cohWeight(logical(ID0))')./norm((x - mean(x)).*cohWeight(logical(ID0))');
-        
+
         % Overall Residual
         [~,gof0,~] = compare(trunSYS0,modelSYS);
         residual_frd = 1 - (gof0/100);
@@ -1839,17 +1839,17 @@ end
         residual_mag = compareArray(log10(MAG_o),log10(MAG_m));
         % Phase Residual
         residual_phs = compareArray(wrapTo180(PHS_o),wrapTo180(PHS_m));
-        
+
         % Slightly more weightage to Phase
         residual = 0.0*residual_frd + 0.5*residual_mag + 0.5*residual_phs;
-        
-        
-        
+
+
+
     end
 
     function [coe] = quack3andahalf_modified(gomo,Fs,filename,varargin)
-        
-        
+
+
         % Digital Filter Maker
         % This function takes as arguments, gomo, a matlab 'sys' object
         % and the sample frequency, Fs, at which to make coefs.
@@ -1879,25 +1879,25 @@ end
         %   fname = varargin{2};
         %   f_prewarp = varargin{1};
         % end
-        
-        
-        
+
+
+
         % Getting the ZPK data
         [ZZZ,PPP,KKK] = zpkdata(gomo,'v');
-        
+
         % Bilinear transform from s to z plane
         [zd,pd,kd] = bilinear(ZZZ,PPP,KKK,Fs,varargin{:});
-        
+
         % SOSing the digital zpk
-        
+
         [sos,gs] = zp2sos(zd,pd,kd);
-        
+
         [~,ca] = sos_shuffle(sos);
-        
+
         coe = real([gs ca']);
-        
-        
-        
+
+
+
         function format_foton(coe)
             % produce formatted output for Foton
             fprintf(1, '\n');
@@ -1932,7 +1932,7 @@ end
 
 
     function [g,ca] = sos_shuffle(sos, fname)
-        
+
         %  SOS_SHUFFLE(SOS,'FNAME') reorganize digital filter coeffs.
         %  [G, CA] = SOS_SHUFFLE(SOS,'FNAME') re-organizes the coefficients
         %  of a cascaded, second order section IIR filter, from the
@@ -1978,25 +1978,25 @@ end
     end
 
     function [x, y, fs] = vectorMatch(x, xfs, y, yfs)
-        
+
         if yfs > xfs
             y = resample(y, xfs, yfs);
             fs = xfs;
         end
-        
+
         if xfs > yfs
             x = resample(x,yfs,xfs);
             fs = yfs;
         end
-        
+
         if xfs == yfs
             fs = xfs;
         end
-        
+
         % now check the vector lengths
         nx = length(x);
         ny = length(y);
-        
+
         if nx > ny
             disp('!!! vectors are not equal lengths. Truncating x. !!!');
             x = x(1:ny);
@@ -2005,87 +2005,87 @@ end
             disp('!!! vectors are not equal lengths. Truncating y. !!!');
             y = y(1:nx);
         end
-        
+
     end
 
 
 
     function make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS,modelSYS_best,modelSYS_best_reducedOrder)
-        
+
         [~,temp_p] = zpkdata(modelSYS,'v');
-        
+
         % FIG_GCF.Visible = 'off';
         %figure(FIG_GCF);
         FIG_GCF = figure(FIG_HANDLE,'Visible',FIG_HANDLE_VISIBILITY);
-        
-        
+
+
         if nargin < 7
-            
+
             if isequal(modelSYS,modelSYS_best)
                 BD = bodeplot(SYS_orig,SYS,trunSYS,modelSYS_best,BO);
             else
                 BD = bodeplot(SYS_orig,SYS,trunSYS,modelSYS_best,modelSYS,BO);
             end
-            
+
             % set ylim to within the original levels defined by SYS_orig
             YLIM = getoptions(BD,'YLim');
             [SS,LL] = bounds(abs(squeeze(SYS_orig.ResponseData)));
             YLIM(1)= {mag2db([SS,LL]) + [-5,+5]};   % mag2db with some margin
             YLIM(2)= {[-180,180]};
             setoptions(BD,'YLim',YLIM)
-            
+
             [~,gof_tempo] = compareSYS(trunSYS,modelSYS);
             if isequal(modelSYS,modelSYS_best)
-                
+
                 if ~isempty(modelSYS.UserData)
                     [lgnd, hobj, ~, ~] = legend({'Measurement ( original )','Measurement ( processed )','Focus Region',sprintf('Best Fit with 1 Sigma Deviation ( Order: %d, GOF: %0.2f %s)',order(modelSYS),gof_tempo,'%')},'Location','Best');
                 else
                     [lgnd, hobj, ~, ~] = legend({'Measurement ( original )','Measurement ( processed )','Focus Region',sprintf('Best Fit( Order: %d, GOF: %0.2f %s)',order(modelSYS),gof_tempo,'%')},'Location','Best');
                 end
-                
+
                 % modify current best plot line style
                 aX = findall(gcf,'type','line');
                 aX(4).LineStyle='--';
                 aX(12).LineStyle='--';
                 aX(4).LineWidth=4;
                 aX(12).LineWidth=4;
-                
+
                 % Set legend color
                 if ~isempty(modelSYS.UserData)
                     % set bestfit legend color
                     hobj(11).Color = [0.466,0.674,0.188];
                 end
-                
-                
+
+
             else
                 [lgnd, hobj, ~, ~] = legend({'Measurement ( original )','Measurement ( processed )','Focus Region','Best Fit',sprintf('Modeled Response ( Order: %d, GOF: %0.2f %s)',order(modelSYS),gof_tempo,'%')},'Location','Best');
-                
+
                 % modify current best plot line style
                 aX = findall(gcf,'type','line');
                 aX(6).LineStyle='--';
                 aX(16).LineStyle='--';
                 aX(6).LineWidth=4;
                 aX(16).LineWidth=4;
-                
+
                 % Set legend color
                 if ~isempty(modelSYS.UserData)
                     % set bestfit legend color
                     hobj(11).Color = [0.466,0.674,0.188];
                 end
-                
+
             end
-            
-            
-            
+
+
+
             lgnd.BoxFace.ColorType='truecoloralpha';
             lgnd.BoxFace.ColorData=uint8(255*[1 1 1 0.45]');
             lgnd.Box='off';
-            
+
             % Set Axis Color
             AXES = findall(gcf,'type','axes');
             set(AXES(2),'color',[1,1,1]*0.9,'xminorgrid','off','xminorgrid','off');
             set(AXES(3),'color',[1,1,1]*0.9,'xminorgrid','off','yminorgrid','off');
-            
+
             if ~isempty(modelSYS.UserData)
                 hold on
                 bodeplot(rsample(modelSYS,20)); %bodeplot(rsample(modelSYS,20),'c');
@@ -2098,7 +2098,7 @@ end
                     aX2(iou).LineStyle='--';
                     aX2(iou).Color = [110,163,163,100]/255;%paled aqua-marine
                 end
-                
+
                 %update best fit line (hard-coded)
                 aX2(44).LineStyle='-';
                 aX2(44).LineWidth=2;
@@ -2106,17 +2106,17 @@ end
                 aX2(92).LineStyle='-';
                 aX2(92).LineWidth=2;
                 aX2(92).Color = [0.466,0.674,0.188];
-                
+
                 % update legend (not working)
                 lgnd.String = [lgnd.String, '1 Sigma Deviation'];
             end
         else
             [~,temp_p_2] = zpkdata(modelSYS_best_reducedOrder,'v');
             orderReducedToggle = length(temp_p_2) < length(temp_p);
-            
+
             if orderReducedToggle == 1
-                
-                
+
+
                 BD = bodeplot(SYS_orig,SYS,trunSYS,modelSYS,modelSYS_best_reducedOrder,BO);
                 [~,gof_tempo] = compareSYS(trunSYS,modelSYS);
                 [~,gof_tempo_reducedOrder] = compareSYS(trunSYS,modelSYS_best_reducedOrder);
@@ -2125,18 +2125,18 @@ end
                 aX = findall(gcf,'type','line');
                 aX(4).LineStyle='--';
                 aX(14).LineStyle='--';
-                
+
                 % set ylim to within the original levels defined by SYS_orig
                 YLIM = getoptions(BD,'YLim');
                 [SS,LL] = bounds(abs(squeeze(SYS_orig.ResponseData)));
                 YLIM(1)= {mag2db([SS,LL]) + [-5,+5]};   % mag2db with some margin
                 YLIM(2)= {[-180,180]};
                 setoptions(BD,'YLim',YLIM)
-                
+
                 lgnd.BoxFace.ColorType='truecoloralpha';
                 lgnd.BoxFace.ColorData=uint8(255*[1 1 1 0.45]');
                 lgnd.Box='off';
-                
+
             else
                 BD = bodeplot(SYS_orig,SYS,trunSYS,modelSYS,BO);
                 [~,gof_tempo] = compareSYS(trunSYS,modelSYS);
@@ -2151,17 +2151,17 @@ end
                 aX = findall(gcf,'type','line');
                 aX(4).LineStyle='--';
                 aX(12).LineStyle='--';
-                
+
                 lgnd.BoxFace.ColorType='truecoloralpha';
                 lgnd.BoxFace.ColorData=uint8(255*[1 1 1 0.45]');
                 lgnd.Box='off';
-                
-                
+
+
                 % Set Axis Color
                 AXES = findall(gcf,'type','axes');
                 set(AXES(2),'color',[1,1,1]*0.9,'xminorgrid','off','xminorgrid','off');
                 set(AXES(3),'color',[1,1,1]*0.9,'xminorgrid','off','yminorgrid','off');
-                
+
                 if ~isempty(modelSYS.UserData)
                     hold on
                     bodeplot(rsample(modelSYS,20));
@@ -2174,8 +2174,8 @@ end
                         aX2(iou).LineStyle='--';
                         aX2(iou).Color = [110,163,163,100]/255;%paled aqua-marine
                     end
-                    
-                    
+
+
                     %update best fit line (hard-coded)
                     aX2(44).LineStyle='-';
                     aX2(44).LineWidth=2;
@@ -2183,19 +2183,19 @@ end
                     aX2(92).LineStyle='-';
                     aX2(92).LineWidth=2;
                     aX2(92).Color = [0.466,0.674,0.188];
-                    
+
                     % update legend (not working)
                     lgnd.String = [lgnd.String, '1 Sigma Deviation'];
                 end
             end
-            
-            
+
+
         end
         set(findall(gcf,'-property','FontSize'),'FontSize',15)
         set(findall(gcf,'type','line'),'linewidth',2)
-        
-        
-        
+
+
+
         % Add ToolbarExplorationButtons (for versions >= R2018b)
         try
             if datetime(version('-date')) > datetime('05-Aug-2018')
@@ -2208,15 +2208,15 @@ end
         %     set(get(gca, 'XLabel'), 'Position', vec_pos + [ -2.5 0 0]);
         xlh  = get(gca, 'XLabel');
         xlh.Position(1) = xlh.Position(1) - abs(xlh.Position(1) * 0.5);
-        
-        
+
+
         % Change Legend linewidth
         hl = findobj(hobj,'type','line');
         set(hl,'LineWidth',2);
         ht = findobj(hobj,'type','text');
         set(ht,'FontSize',12);
-        
-        
+
+
         if DISPLAY_ZPK == 1
             % Create String for showing ZPK parameters
             if isfield(FIT,'ZPK')
@@ -2227,7 +2227,7 @@ end
                 else
                     Str = ["Full Order" "Z" string(ZPK.z)' "P" string(ZPK.p)' "K" num2str(ZPK.k,'%g') "Delay" num2str(finalIODelay,'%g')];
                 end
-                
+
                 % Add Reduced Order
                 if isfield(FIT,'ZPK_Reduced_Order')
                     ZPK = FIT.ZPK_Reduced_Order;
@@ -2238,14 +2238,14 @@ end
                         Str = [Str " " " " "Reduced Order" "Z" string(ZPK.z)' "P" string(ZPK.p)' "K" num2str(ZPK.k,'%g') "Delay" num2str(finalIODelay,'%g')];
                     end
                 end
-                
+
             elseif isfield(FIT,'intermediate')
                 ZPK = FIT.intermediate(end).ZPK;
                 intmIODelay = FIT.intermediate(end).IODelay;
                 %ZPK.z = round(ZPK.z,4);
                 %ZPK.p = round(ZPK.p,4);
                 %ZPK.k = round(ZPK.k,4);
-                
+
                 if isempty(ZPK.z)
                     Str = ["Full Order" "P" string(ZPK.p)' "K" num2str(ZPK.k,'%g') "Delay" num2str(intmIODelay,'%g')];
                 else
@@ -2255,7 +2255,7 @@ end
                 fprintf('Plotting error. Try setting "DISPLAY_ZPK" to 0. Existing. \n')
                 return;
             end
-            
+
             %FUTURE_ADDITION (INCLUDE UNCERTAINITY IN PLOTS)
             %             if ESTIMATE_UNCERTAINITY == 1
             %                 un = squeeze(real((FIT.ZPK.zcov).^0.5)); un = un(1,:); un = round(un,3);
@@ -2263,8 +2263,8 @@ end
             %                 un = squeeze(real((FIT.ZPK.pcov.^0.5))); un = un(1,:); un = round(un,3);
             %                 pun = un;
             %             end
-            
-            
+
+
             % Add ZPK text annotation to plot
             delete(findall(gcf,'type','annotation'));
             txtAnno = annotation('textbox');
@@ -2276,7 +2276,7 @@ end
             %txtAnno.BackgroundColor = [1 1 1]*0.9;
             drawnow;
         end
-        
+
         %Code to display image preview inside the App
         if MATLAB_APP_TOGGLE == 1
             figure(FIG_GCF);
@@ -2286,10 +2286,10 @@ end
             figure(APP.UIFigure);
             % retain the final result figure
             if ~isfield(FIT,'ZPK')
-             delete(FIG_GCF);
+                delete(FIG_GCF);
             end
         end
-        
+
     end
 
 
@@ -2299,27 +2299,27 @@ end
         [MAG_o,PHS_o,W_o] = bode(observedSYS);
         MAG_o = squeeze(MAG_o);
         PHS_o = squeeze(PHS_o);
-        
+
         % Get MAG & PHS of modeled system
         [MAG_m,PHS_m] = bode(modelSYS,W_o);
         MAG_m = squeeze(MAG_m);
         PHS_m = squeeze(PHS_m);
-        
-        
+
+
         % Goodness of fit btw measured & modeled response
         compareArray = @(x,y) norm(x - y)./norm(x - mean(x));
-        
+
         % Overall Residual
         [~,gof0,~] = compare(observedSYS,modelSYS);
         residual_frd = 1 - (gof0/100);
-        
+
         % Magnitude Residual
         residual_mag = compareArray(log10(MAG_o),log10(MAG_m));
         % Phase Residual
         residual_phs = compareArray(wrapTo180(PHS_o),wrapTo180(PHS_m));
         % Slightly more weightage to Phase
         residual = 0.0*residual_frd + 0.5*residual_mag + 0.5*residual_phs;
-        
+
         GOF = 100*(1 - residual);
     end
 
@@ -2384,7 +2384,7 @@ end
         try setoptions(BD,'XLim',XLIM);catch;end
         set(findall(gcf,'-property','FontSize'),'FontSize',15)
         set(findall(gcf,'type','line'),'linewidth',2)
-        
+
         % Add ToolbarExplorationButtons (for versions >= R2018b)
         try
             if datetime(version('-date')) > datetime('05-Aug-2018')
@@ -2397,24 +2397,26 @@ end
         %     set(get(gca, 'XLabel'), 'Position', vec_pos + [ -2.5 0 0]);
         xlh  = get(gca, 'XLabel');
         xlh.Position(1) = xlh.Position(1) - abs(xlh.Position(1) * 0.5);
-        
+
         %[lgnd, hobj, ~, ~] = legend({'Measurement ( original )','Measurement ( processed )','Focus Region',sprintf('Modeled Response ( Order: %d, GOF: %0.2f %s)',order(modelSYS),gof_tempo,'%')},'Location','Best');
         [~, hobj, ~, ~] = legend({'Measurement ( original )','Measurement ( processed )'},'Location','Best');
-        
+
         % Change Legend linewidth
         hl = findobj(hobj,'type','line');
         set(hl,'LineWidth',2);
         ht = findobj(hobj,'type','text');
         set(ht,'FontSize',12);
-        
+
         figure(FIG_GCF);
         %set(gcf,'XLIM',XLIM);
         exportgraphics(FIG_GCF,'temp.png');
-        delete(FIG_GCF)
+        if APP.FIG_HANDLE_VISIBILITYCheckBox.Value == 0
+           delete(FIG_GCF)
+        end
         IMG = imread('temp.png');
         imshow(IMG,'Parent',APP.UIAxes);
         figure(APP.UIFigure);
-        
+
         %Code to display image preview inside the App
         %saveas(FIG_GCF,'temp.png');
         %IMG = imread('temp.png');
