@@ -16,7 +16,7 @@
 
 - **Compatibility**
 
-            -   MATLAB R2023b+
+            -   MATLAB R2023b+ (check older releases for older MATLAB R2022a+ versions)
            
 - **Toolboxes Required**
   
