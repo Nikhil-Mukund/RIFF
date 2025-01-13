@@ -59,7 +59,7 @@
 %       "DESIRED_GOF"   [ Default = 50          ] Desired goodness of fit (in %), activated when ATTAIN_GOF = 1
 %  "POLE_UPDATE_TRIAL"  [     Default = 5       ] Increase MAX_POLE every Nth Trial (Used when ATTAIN_GOF = 1 )
 %     "FIT_NOISE_FLOOR" [     Default = 0       ] Fit transfer function noise floor
-%        "ROUTINE"      [ Default =  1:3        ] Fit Routine:  1="rationalfit", 2="tfest", 3="invfreqs
+%        "ROUTINE"      [ Default =  1:5        ] Fit Routine: 1="rationalfit", 2="tfest", 3="invfreqs, 4="fitmagfrd", 5="AAA-rational"
 %  "DESIRED_MODEL_ORDER"[ Default = []          ] Request desired model order
 %  "ENFORCE_STABILITY"  [ Default = 1           ] Enforce poles to be on the left half plane
 % "ESTIMATE_UNCERTAINITY" [ Default = 0         ] Determine uncertainity on esimated parameters
@@ -176,7 +176,16 @@
 %
 %    28th Apr 2022:  -> Added minimum-phase state-space model fitting using log-Chebyshev magnitude design
 %                    -> Supports possible SysID with IODelay
-% COMPATIBILITY: MATLAB R2018b+
+%    Aug 29, 2023: -> Added Nick Trefethen's AAA algorithm
+%                  -> cycles through all fitting routines
+%                  -> Uncertainity (only via tfest) not estimated by default
+%                  -> Defaults changed: Fmincon->Surrogate, NUM_TRIALS->20
+%                   -> try catch added to all FIT_ROUTINES to prevent
+%                   errors from any missing toolboxes (if users havenot
+%                   installed these already).
+%                  -> Added GUI option to select fitting routine 
+%                  -> Changed TFEST (and in APP) default NUM_ZEROS to NUM_POLES
+% COMPATIBILITY: MATLAB R2023b+
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -189,6 +198,9 @@
 %   -Add option to specify the number of freq samples used in FRD interp (1e3)
 %   -This line sometimes throws an error >> VALUE = getcov(modelSYS,'FACTORS','free');
 %   -Check IODelay behavior when ESTIMATE_UNCERTAINITY &DESIRED_MODEL_ORDER flags are ON
+%   -AAA support
+%           - Include AAA (ROUTINE=5) for DESIRED_MODEL_ORDER (currentlty only ROUTINE={1,2} included)
+%   Implement no right half plane zeros in tfest
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function[FIT] =  fitTF(varargin)
 
@@ -233,7 +245,7 @@ NUM_TRIALS    = 10;       % Number of trials with different initializations
 ALPHA        = 4;         %  (fcorner/f)^ALPHA: Power law suppression for frequencies outside band of interest
 INTERMEDIATE_PLOT = 0;    % Make intermediate bode plots
 PZTOL          = sqrt(eps);    % Delete zeros & poles at are closer to each other than the PZTOL value
-ROUTINE        = 1:2;     % Fit Routine:  1="rationalfit", 2="invfreqs", 3="tfest"
+ROUTINE        = 1:5;     % 1:2, Fit Routine:  1="rationalfit", 2="tfest", 3="invfreqs", 4="fitmagfrd", 5="AAA"
 ESTIMATE_UNCERTAINITY = 1; % Estimate uncertainity associated with the ZPK parameters.
 INCLUDE_IODELAY = 0;       % Account for possible Input-Output Delay during SysID
 DISPLAY_ZPK = 1 ;          % Display ZPK parameters while plotting.
@@ -270,6 +282,10 @@ EXPORT_TO_WORKSPACE = 0; % export fitTF result from APP to workspace
 EXPORT_VARIABLE_NAME = 'FIT_RESULT'; % export fitTF from APP result to workspace
 PREVIEW_BODEPLOT_TOGGLE=0; % Used to preview bodeplot from the App
 SDF_DATASET_FREQ_RESO = 0.1; % Used to determine the final SDF interpolation freq reso
+% Variable for post-procressing results from FIT_RESULT
+POST_PROCESS_RESULT_VARIABLE = 'FIT_RESULT';
+VIEW_INTERMEDIATE_BODEPLOT_TOGGLE = 0;
+POST_PROCESS_RESULT_INTERMEDIATE_ID = 1;
 %--------------------------------------------------------------------------
 
 % [FIGURE HANDLE OPTIONS]
@@ -283,7 +299,11 @@ FIG_HANDLE.PAPERORIENTATION = 'PORTRAIT';  %  PORTRAIT or LANDSCAPE
 
 
 
+% Weight Filter options
+WtFilter = ["EQUAL","ABSOLUTE","INVERSE","INVERSE_SQUARE_ROOT","CUSTOM"];
 
+% Fit Routines [Donot change the order]
+Routine_Names = ["rationalfit","tfest","invfreqs","fitmagfrd","AAA"];
 
 
 
@@ -463,12 +483,18 @@ for k= 1:2:length(varargin)
             EXTRA_INFO = varargin{k+1};
         case {'DESIRED_MODEL_ORDER'}
             DESIRED_MODEL_ORDER = double(varargin{k+1});
-            ROUTINE  = 1:2;
+            ROUTINE  = [1,2,3,5]; %Default 1:2
         case {'INCLUDE_IODELAY'}
             INCLUDE_IODELAY = varargin{k+1};
+        case {'POST_PROCESS_RESULT_VARIABLE'}
+            POST_PROCESS_RESULT_VARIABLE = varargin{k+1};
+        case {'VIEW_INTERMEDIATE_BODEPLOT_TOGGLE'}
+            VIEW_INTERMEDIATE_BODEPLOT_TOGGLE = varargin{k+1}; 
+        case {'POST_PROCESS_RESULT_INTERMEDIATE_ID'}
+            POST_PROCESS_RESULT_INTERMEDIATE_ID = varargin{k+1};            
     end
 end
-
+FIT_RESULT_VARIABLE=[];
 % Load variables set using the MATLAB APP to fitTF.m workspace
 % Compatibility 2020b+
 if MATLAB_APP_TOGGLE == 1
@@ -489,10 +515,21 @@ if MATLAB_APP_TOGGLE == 1
                 %                 end
 
                 % USE CheckBox VALUE FROM APP
-            elseif contains(class(APP.(FIELDS{ijk})),'CheckBox')
+            elseif contains(class(APP.(FIELDS{ijk})),'CheckBox') && ~contains(class(APP.(FIELDS{ijk})),'CheckBoxTree')
                 if ~contains(FIELDS{ijk},'Label')
                     feval(@()assignin('caller', extractBefore(FIELDS{ijk},{'CheckBox'}),APP.(FIELDS{ijk}).Value));
                 end
+                % Use CheckBoxTree to select fit routines    
+            elseif contains(class(APP.(FIELDS{ijk})),'CheckBoxTree')
+                    if numel(APP.(FIELDS{ijk}).CheckedNodes) > 0
+                        selected_routines_str = string({APP.(FIELDS{ijk}).CheckedNodes(:).Text});
+                        selected_routines_str = erase(selected_routines_str,"FITTING_ROUTINES");
+                        selected_routines_str = selected_routines_str(selected_routines_str~="");
+                        routine_dictionary = dictionary(Routine_Names,[1:numel(Routine_Names)]);
+                        % get fit routines based on user selection
+                        ROUTINE = routine_dictionary(selected_routines_str);
+                    end
+
                 % USE DropDown VALUE FROM APP
             elseif contains(class(APP.(FIELDS{ijk})),'DropDown')
                 if ~contains(FIELDS{ijk},'Label')
@@ -645,6 +682,29 @@ if exist('TS1','var') && exist('TS2','var')
 
 end
 
+if VIEW_INTERMEDIATE_BODEPLOT_TOGGLE==1
+    my_FIT_RESULT = POST_PROCESS_RESULT_VARIABLE;
+    current_val_DISPLAY_ZPK = DISPLAY_ZPK;
+    DISPLAY_ZPK = 1;
+    FIT = my_FIT_RESULT;
+    current_val_FIG_HANDLE_VISIBILITY=FIG_HANDLE_VISIBILITY;
+    FIG_HANDLE_VISIBILITY = 0;
+    BO = my_FIT_RESULT.options.BodeOptions;
+    BO.XLim = [ my_FIT_RESULT.frequency.measured(1), my_FIT_RESULT.frequency.measured(end)];
+    BO.Title.String = sprintf('Bode Plot --> Trial No: %d of %d \n Goodness Of Fit (GOF): %0.2f %s (Best GOF: %0.2f %s)',POST_PROCESS_RESULT_INTERMEDIATE_ID,numel(my_FIT_RESULT.intermediate),my_FIT_RESULT.intermediate(POST_PROCESS_RESULT_INTERMEDIATE_ID).GOF,'%',my_FIT_RESULT.gof,'%');
+    BO.Title.FontSize = 15;
+    make_plot(...
+        BO,...
+        my_FIT_RESULT.FRD_Model.measured_original,...
+        my_FIT_RESULT.FRD_Model.measured_smoothed,...
+        my_FIT_RESULT.FRD_Model.truncated,...
+        my_FIT_RESULT.intermediate(POST_PROCESS_RESULT_INTERMEDIATE_ID).FRD_Model.modeled,...
+        my_FIT_RESULT.FRD_Model.modeled);
+    FIT=[];
+    DISPLAY_ZPK = current_val_DISPLAY_ZPK;
+    FIG_HANDLE_VISIBILITY = current_val_FIG_HANDLE_VISIBILITY;
+    return
+end
 
 % Convert to Single Column
 f = f(:);
@@ -847,7 +907,8 @@ end
 if PREVIEW_BODEPLOT_TOGGLE==1
     preview_bodeplot(BO,FIG_HANDLE,frd(TF_orig,2*pi*f_orig),frd(TF,2*pi*f),APP);
     FIT=[];
-        close(FIG_TEMP);
+    close(FIG_TEMP);
+
 else
 
 
@@ -948,7 +1009,7 @@ else
             % Install BADS if it doesn't exist
             if ~exist('bads','file')
                 fprintf('Installing BADS optimizer...\n')
-                outfilename = websave('bads.zip','https://github.com/lacerbi/bads/archive/master.zip');
+                outfilename = websave('bads.zip','https://github.com/acerbilab/bads/archive/refs/heads/master.zip');
                 unzip(outfilename,'bads');
                 addpath('bads/bads-master/')
             end
@@ -1416,11 +1477,7 @@ else
         disp(getReport(exception))
     end
 
-    % Weight Filter options
-    WtFilter = ["EQUAL","ABSOLUTE","INVERSE","INVERSE_SQUARE_ROOT","CUSTOM"];
 
-    % Fit Routines
-    Routines = ["rationalfit","tfest","invfreqs","fitmagfrd"];
 
     % Check if atleast one solution was found else return & disp status
     if ~exist('p_best','var')
@@ -1513,7 +1570,7 @@ else
     FIT.options.Optimization.Num_Poles  = round(xsur_best(1));
     FIT.options.Optimization.F_Start    = xsur_best(2);
     FIT.options.Optimization.F_Stop     = xsur_best(3);
-    FIT.options.Optimization.FINAL_FIT_ROUTINE = Routines(round(xsur_best(4)));
+    FIT.options.Optimization.FINAL_FIT_ROUTINE = Routine_Names(round(xsur_best(4)));
     FIT.options.Optimization.FINAL_WEIGHTING_FILTER = WtFilter(round(xsur_best(5)));
     FIT.dateTime = fID;
     FIT.userName = string(fullname);
@@ -1752,14 +1809,21 @@ end
             'Display','off',...
             'EstimateCovariance',1);
 
+        %fprintf("Using FIT_ROUTINE: %s\n",Routine_Names(FIT_ROUTINE))
 
 
         if FIT_ROUTINE == 1
 
             % Fit a rational function (Vector Fitting)
+            try
             fit  =  rationalfit(ff_trun0,TF_trun0,'Npoles',NUM_POLES,'Weight',Wt);
             [b,a] = residue (fit.C,fit.A,fit.D);
             modelSYS = tf(real (b),a);
+            catch myExp1
+                % set to random stable TF in case to errors
+                disp(getReport(myExp1))
+                modelSYS =  tf([1 1],[1 1 1]);
+            end
 
         elseif FIT_ROUTINE == 2
 
@@ -1770,11 +1834,17 @@ end
             end
 
             % Fit using tfest
+            try
             if isempty(NUM_ZEROS)
                 modelSYS = tfest(trunSYS0,NUM_POLES,NUM_POLES,iodelay_flag,tfestOpt);
             else
                 % Use min(NUM_POLES,NUM_ZEROS) for NUM_ZEROS
                 modelSYS = tfest(trunSYS0,NUM_POLES,min(NUM_POLES,NUM_ZEROS),iodelay_flag,tfestOpt);
+            end
+            catch myExp2
+                % set to random stable TF in case to errors
+                disp(getReport(myExp2))
+                modelSYS =  tf([1 1],[1 1 1]);
             end
 
             % ESTIMATE_UNCERTAINITY
@@ -1805,14 +1875,45 @@ end
         elseif FIT_ROUTINE == 3
 
             % Fit using invfreqs
+            try 
             [b,a] = invfreqs(TF_trun0,ff_trun0*2*pi,NUM_POLES,NUM_POLES,Wt,1e3,1e-11);
             modelSYS = tf(real (b),a);
+             catch myExp3
+                % set to random stable TF in case to errors
+                disp(getReport(myExp3))
+                modelSYS =  tf([1 1],[1 1 1]);
+            end
 
         elseif FIT_ROUTINE == 4
 
-            % Fit using fitmagfrd using
+            % Fit using fitmagfrd
             %   minimum-phase state-space model using log-Chebyshev magnitude design
-            modelSYS = fitmagfrd(trunSYS0,NUM_POLES);
+            try
+                modelSYS = fitmagfrd(trunSYS0,NUM_POLES);
+            catch myExp4
+                % set to random stable TF in case to errors
+                disp(getReport(myExp4))
+                modelSYS =  tf([1 1],[1 1 1]);
+            end
+
+
+        elseif FIT_ROUTINE == 5
+
+            % Fit using Nick Trefethen's AAA algorithm
+            % toggle btw two metrics
+            try
+            if randi(2,1)==1
+                fit  =  rational(ff_trun0,TF_trun0,"MaxPoles",NUM_POLES,"ErrorMetric","Relative","QLimit",1e7);
+            else
+                fit  =  rational(ff_trun0,TF_trun0,"MaxPoles",NUM_POLES,"ErrorMetric","default","QLimit",1e7);
+            end
+            [b,a] = residue (squeeze(fit.Residues),squeeze(fit.Poles),squeeze(fit.DirectTerm));
+            modelSYS = tf(real (b),a);
+         catch myExp5
+                % set to random stable TF in case to errors
+                disp(getReport(myExp5))
+                modelSYS =  tf([1 1],[1 1 1]);
+            end
 
         end
 
@@ -2411,7 +2512,7 @@ end
         %set(gcf,'XLIM',XLIM);
         exportgraphics(FIG_GCF,'temp.png');
         if APP.FIG_HANDLE_VISIBILITYCheckBox.Value == 0
-           delete(FIG_GCF)
+            delete(FIG_GCF)
         end
         IMG = imread('temp.png');
         imshow(IMG,'Parent',APP.UIAxes);
