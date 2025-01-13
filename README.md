@@ -17,7 +17,13 @@
 
             -   MATLAB R2023b+
            
-
+- **Toolboxes Required**
+            -   Control System Toolbox
+            -   System Identification Toolbox
+            -   Global Optimization Toolbox
+            -   Curve Fitting
+            -   RF Toolbox   (else unselect rationalfit & AAA)
+  
 - **Other Features**
 
       - Uses the chosen optimizer to find the best parameters (see below) that maximizes the goodness of fit.
