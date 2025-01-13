@@ -4,7 +4,7 @@
             
 - **What's New!**
 
-      - Added support for Nick Trefthen's AAA Algorithm for Rational Approximation
+      - Added support for AAA Algorithm for Rational Approximation
       - Simplied SysID via guided workflow.
       - Improved fitting algorithm 
       - Option to generate MINIMUM_PHASE models without any right-half plane zeros.
