@@ -3,6 +3,7 @@
 - **Generate robust IIR Zero-Pole-Gain filter models to match the measured transfer functions.**
             
 - **What's New!**
+
       - Added support for Nick Trefthen's AAA Algorithm for Rational Approximation
       - Simplied SysID via guided workflow.
       - Improved fitting algorithm 
