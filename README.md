@@ -3,7 +3,7 @@
 - **Generate robust IIR Zero-Pole-Gain filter models to match the measured transfer functions.**
             
 - **What's New!**
-
+      - Added support for Nick Trefthen's AAA Algorithm for Rational Approximation
       - Simplied SysID via guided workflow.
       - Improved fitting algorithm 
       - Option to generate MINIMUM_PHASE models without any right-half plane zeros.
@@ -15,7 +15,7 @@
 
 - **Compatibility**
 
-            -   MATLAB R2022a+
+            -   MATLAB R2023b+
            
 
 - **Other Features**
@@ -30,6 +30,8 @@
                         - Subspace identification (N4SID)
                         - Vector fitting 
                         - Complex-curve fitting algorithms
+                        - Adaptive Antoulas–Anderson (AAA) Algorithm (Y. Nakatsukasa, O. Sète, and L. N. Trefethen)
+  `
                         
       - Calculates the associated uncertainties & the full covariance matrix.
 
