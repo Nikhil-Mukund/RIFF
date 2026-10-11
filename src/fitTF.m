@@ -210,8 +210,12 @@ disp('Starting transfer function estimation...')
 
 format long g
 
-% add path
-try addpath('./utils');catch;end
+% Add local helpers only when needed. Re-adding an installed add-on's
+% folder can reorder MATLAB's managed package paths (R2026b).
+utilsFolder = fullfile(fileparts(mfilename('fullpath')),'utils');
+if ~any(strcmp(strsplit(path,pathsep),utilsFolder))
+    addpath(utilsFolder);
+end
 
 if isempty(varargin)
     disp('No input arguments provided, check the description given below...')
@@ -547,9 +551,7 @@ end
 
 
 
-if MATLAB_APP_TOGGLE == 1
-    FIG_TEMP = figure('Renderer', 'painters', 'Position', [0 0 0.1 0.1]);
-end
+
 
 FIG_HANDLE_VISIBILITY_ORIG = FIG_HANDLE_VISIBILITY;
 
@@ -905,9 +907,8 @@ end
 
 
 if PREVIEW_BODEPLOT_TOGGLE==1
-    preview_bodeplot(BO,FIG_HANDLE,frd(TF_orig,2*pi*f_orig),frd(TF,2*pi*f),APP);
+    preview_bodeplot(BO,frd(TF_orig,2*pi*f_orig),frd(TF,2*pi*f),APP);
     FIT=[];
-    close(FIG_TEMP);
 
 else
 
@@ -1486,7 +1487,6 @@ else
         fprintf('Relax some of the specified settings. (Ex. Set INCLUDE_DELAY=0)\n')
         fprintf('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n')
         FIT=[];
-        close(FIG_TEMP);
         return
     end
 
@@ -1637,9 +1637,9 @@ else
         BO.Title.String = sprintf('Bode Plot');
         BO.Title.FontSize = 15;
         if exist('modelSYS_best_reducedOrder','var')
-            make_plot(BO,SYS_orig,SYS,trunSYS_best,modelSYS_best,modelSYS_best,modelSYS_best_reducedOrder);
+            FIG_GCF = make_plot(BO,SYS_orig,SYS,trunSYS_best,modelSYS_best,modelSYS_best,modelSYS_best_reducedOrder);
         else
-            make_plot(BO,SYS_orig,SYS,trunSYS_best,modelSYS_best,modelSYS_best);
+            FIG_GCF = make_plot(BO,SYS_orig,SYS,trunSYS_best,modelSYS_best,modelSYS_best);
         end
 
         if SAVE_TOGGLE
@@ -1669,13 +1669,13 @@ else
 
 
             save(fileName,'FIT')
-            savefig(gcf,figName)
+            savefig(FIG_GCF,figName)
 
             % Use exportgraphics function (if available)
             if exist('exportgraphics','file') == 6
-                exportgraphics(gcf,imageName);
+                exportgraphics(FIG_GCF,imageName);
             else
-                saveas(gcf,imageName)
+                saveas(FIG_GCF,imageName)
             end
 
             % Save FOTON Compatible SOS Filter
@@ -1735,13 +1735,6 @@ else
 
     disp('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
 
-    % close temp fig
-    if exist('FIG_TEMP','var')
-        if ishandle(FIG_TEMP)
-            close(FIG_TEMP);
-        end
-    end
-
     % include variables from APP to FIT structure
     FIT.APP = APP;
 
@@ -1768,6 +1761,8 @@ end
 
 
         % Disable warning
+        warningState = warning;
+        warningCleanup = onCleanup(@() warning(warningState));
         warning('off','all');
 
         NUM_POLES = round(Params(1));
@@ -2111,212 +2106,46 @@ end
 
 
 
-    function make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS,modelSYS_best,modelSYS_best_reducedOrder)
+    function FIG_GCF = make_plot(BO,SYS_orig,SYS,trunSYS,modelSYS,modelSYS_best,modelSYS_best_reducedOrder)
 
-        [~,temp_p] = zpkdata(modelSYS,'v');
+        [~,gof_tempo] = compareSYS(trunSYS,modelSYS);
+        systems = {SYS_orig,SYS,trunSYS};
+        labels = {'Measurement ( original )','Measurement ( processed )','Focus Region'};
+        lineSpecs = {'-','-','-'};
+        orderReducedToggle = nargin == 7 && ...
+            order(modelSYS_best_reducedOrder) < order(modelSYS);
 
-        % FIG_GCF.Visible = 'off';
-        %figure(FIG_GCF);
-        FIG_GCF = figure(FIG_HANDLE,'Visible',FIG_HANDLE_VISIBILITY);
-
-
-        if nargin < 7
-
-            if isequal(modelSYS,modelSYS_best)
-                BD = bodeplot(SYS_orig,SYS,trunSYS,modelSYS_best,BO);
-            else
-                BD = bodeplot(SYS_orig,SYS,trunSYS,modelSYS_best,modelSYS,BO);
-            end
-
-            % set ylim to within the original levels defined by SYS_orig
-            YLIM = getoptions(BD,'YLim');
-            [SS,LL] = bounds(abs(squeeze(SYS_orig.ResponseData)));
-            YLIM(1)= {mag2db([SS,LL]) + [-5,+5]};   % mag2db with some margin
-            YLIM(2)= {[-180,180]};
-            setoptions(BD,'YLim',YLIM)
-
-            [~,gof_tempo] = compareSYS(trunSYS,modelSYS);
-            if isequal(modelSYS,modelSYS_best)
-
-                if ~isempty(modelSYS.UserData)
-                    [lgnd, hobj, ~, ~] = legend({'Measurement ( original )','Measurement ( processed )','Focus Region',sprintf('Best Fit with 1 Sigma Deviation ( Order: %d, GOF: %0.2f %s)',order(modelSYS),gof_tempo,'%')},'Location','Best');
-                else
-                    [lgnd, hobj, ~, ~] = legend({'Measurement ( original )','Measurement ( processed )','Focus Region',sprintf('Best Fit( Order: %d, GOF: %0.2f %s)',order(modelSYS),gof_tempo,'%')},'Location','Best');
-                end
-
-                % modify current best plot line style
-                aX = findall(gcf,'type','line');
-                aX(4).LineStyle='--';
-                aX(12).LineStyle='--';
-                aX(4).LineWidth=4;
-                aX(12).LineWidth=4;
-
-                % Set legend color
-                if ~isempty(modelSYS.UserData)
-                    % set bestfit legend color
-                    hobj(11).Color = [0.466,0.674,0.188];
-                end
-
-
-            else
-                [lgnd, hobj, ~, ~] = legend({'Measurement ( original )','Measurement ( processed )','Focus Region','Best Fit',sprintf('Modeled Response ( Order: %d, GOF: %0.2f %s)',order(modelSYS),gof_tempo,'%')},'Location','Best');
-
-                % modify current best plot line style
-                aX = findall(gcf,'type','line');
-                aX(6).LineStyle='--';
-                aX(16).LineStyle='--';
-                aX(6).LineWidth=4;
-                aX(16).LineWidth=4;
-
-                % Set legend color
-                if ~isempty(modelSYS.UserData)
-                    % set bestfit legend color
-                    hobj(11).Color = [0.466,0.674,0.188];
-                end
-
-            end
-
-
-
-            lgnd.BoxFace.ColorType='truecoloralpha';
-            lgnd.BoxFace.ColorData=uint8(255*[1 1 1 0.45]');
-            lgnd.Box='off';
-
-            % Set Axis Color
-            AXES = findall(gcf,'type','axes');
-            set(AXES(2),'color',[1,1,1]*0.9,'xminorgrid','off','xminorgrid','off');
-            set(AXES(3),'color',[1,1,1]*0.9,'xminorgrid','off','yminorgrid','off');
-
-            if ~isempty(modelSYS.UserData)
-                hold on
-                bodeplot(rsample(modelSYS,20)); %bodeplot(rsample(modelSYS,20),'c');
-                hold off
-                aX2 = findall(gcf,'type','line');
-                %hard-coded:uncertainity analysis
-                LineNumbers =  [2:2:40,54:2:90];
-                for iou = LineNumbers
-                    aX2(iou).LineWidth=0.1;
-                    aX2(iou).LineStyle='--';
-                    aX2(iou).Color = [110,163,163,100]/255;%paled aqua-marine
-                end
-
-                %update best fit line (hard-coded)
-                aX2(44).LineStyle='-';
-                aX2(44).LineWidth=2;
-                aX2(44).Color = [0.466,0.674,0.188];
-                aX2(92).LineStyle='-';
-                aX2(92).LineWidth=2;
-                aX2(92).Color = [0.466,0.674,0.188];
-
-                % update legend (not working)
-                lgnd.String = [lgnd.String, '1 Sigma Deviation'];
-            end
+        if orderReducedToggle
+            [~,gof_reduced] = compareSYS(trunSYS,modelSYS_best_reducedOrder);
+            systems = [systems,{modelSYS,modelSYS_best_reducedOrder}];
+            labels = [labels,{...
+                sprintf('Modeled Response ( Order: %d, GOF: %0.2f %%)',order(modelSYS),gof_tempo),...
+                sprintf('Reduced Order: %d, GOF: %0.2f %%',order(modelSYS_best_reducedOrder),gof_reduced)}];
+            lineSpecs = [lineSpecs,{'-','g--'}];
+        elseif isequal(modelSYS,modelSYS_best) || nargin == 7
+            systems{end+1} = modelSYS;
+            labels{end+1} = sprintf('Best Fit ( Order: %d, GOF: %0.2f %%)',order(modelSYS),gof_tempo);
+            lineSpecs{end+1} = 'm--';
         else
-            [~,temp_p_2] = zpkdata(modelSYS_best_reducedOrder,'v');
-            orderReducedToggle = length(temp_p_2) < length(temp_p);
-
-            if orderReducedToggle == 1
-
-
-                BD = bodeplot(SYS_orig,SYS,trunSYS,modelSYS,modelSYS_best_reducedOrder,BO);
-                [~,gof_tempo] = compareSYS(trunSYS,modelSYS);
-                [~,gof_tempo_reducedOrder] = compareSYS(trunSYS,modelSYS_best_reducedOrder);
-                [lgnd, hobj, ~, ~] = legend({'Measurement ( original )','Measurement ( processed )','Focus Region',sprintf('Modeled Response ( Order: %d, GOF: %0.2f %s)',order(modelSYS),gof_tempo,'%'), sprintf('Modeled Response ( Reduced Order: %d, GOF: %0.2f %s )',order(modelSYS_best_reducedOrder),gof_tempo_reducedOrder,'%')},'Location','Best');
-                % modify reducedOrder line style
-                aX = findall(gcf,'type','line');
-                aX(4).LineStyle='--';
-                aX(14).LineStyle='--';
-
-                % set ylim to within the original levels defined by SYS_orig
-                YLIM = getoptions(BD,'YLim');
-                [SS,LL] = bounds(abs(squeeze(SYS_orig.ResponseData)));
-                YLIM(1)= {mag2db([SS,LL]) + [-5,+5]};   % mag2db with some margin
-                YLIM(2)= {[-180,180]};
-                setoptions(BD,'YLim',YLIM)
-
-                lgnd.BoxFace.ColorType='truecoloralpha';
-                lgnd.BoxFace.ColorData=uint8(255*[1 1 1 0.45]');
-                lgnd.Box='off';
-
-            else
-                BD = bodeplot(SYS_orig,SYS,trunSYS,modelSYS,BO);
-                [~,gof_tempo] = compareSYS(trunSYS,modelSYS);
-                % set ylim to within the original levels defined by SYS_orig
-                YLIM = getoptions(BD,'YLim');
-                [SS,LL] = bounds(abs(squeeze(SYS_orig.ResponseData)));
-                YLIM(1)= {mag2db([SS,LL]) + [-5,+5]};   % mag2db with some margin
-                YLIM(2)= {[-180,180]};
-                setoptions(BD,'YLim',YLIM)
-                [lgnd, hobj, ~, ~] = legend({'Measurement ( original )','Measurement ( processed )','Focus Region',sprintf('Modeled Response ( Order: %d, GOF: %0.2f %s)',order(modelSYS),gof_tempo,'%')},'Location','Best');
-                % modify reducedOrder line style
-                aX = findall(gcf,'type','line');
-                aX(4).LineStyle='--';
-                aX(12).LineStyle='--';
-
-                lgnd.BoxFace.ColorType='truecoloralpha';
-                lgnd.BoxFace.ColorData=uint8(255*[1 1 1 0.45]');
-                lgnd.Box='off';
-
-
-                % Set Axis Color
-                AXES = findall(gcf,'type','axes');
-                set(AXES(2),'color',[1,1,1]*0.9,'xminorgrid','off','xminorgrid','off');
-                set(AXES(3),'color',[1,1,1]*0.9,'xminorgrid','off','yminorgrid','off');
-
-                if ~isempty(modelSYS.UserData)
-                    hold on
-                    bodeplot(rsample(modelSYS,20));
-                    hold off
-                    aX2 = findall(gcf,'type','line');
-                    %hard-coded:uncertainity analysis
-                    LineNumbers =  [2:2:42,54:2:90];
-                    for iou = LineNumbers
-                        aX2(iou).LineWidth=0.1;
-                        aX2(iou).LineStyle='--';
-                        aX2(iou).Color = [110,163,163,100]/255;%paled aqua-marine
-                    end
-
-
-                    %update best fit line (hard-coded)
-                    aX2(44).LineStyle='-';
-                    aX2(44).LineWidth=2;
-                    aX2(44).Color = [0.466,0.674,0.188];
-                    aX2(92).LineStyle='-';
-                    aX2(92).LineWidth=2;
-                    aX2(92).Color = [0.466,0.674,0.188];
-
-                    % update legend (not working)
-                    lgnd.String = [lgnd.String, '1 Sigma Deviation'];
-                end
-            end
-
-
+            systems = [systems,{modelSYS_best,modelSYS}];
+            labels = [labels,{'Best Fit',...
+                sprintf('Modeled Response ( Order: %d, GOF: %0.2f %%)',order(modelSYS),gof_tempo)}];
+            lineSpecs = [lineSpecs,{'m--','-'}];
         end
-        set(findall(gcf,'-property','FontSize'),'FontSize',15)
-        set(findall(gcf,'type','line'),'linewidth',2)
 
-
-
-        % Add ToolbarExplorationButtons (for versions >= R2018b)
-        try
-            if datetime(version('-date')) > datetime('05-Aug-2018')
-                addToolbarExplorationButtons(gcf)
-            end
-        catch
+        % UserData can contain arbitrary metadata. Only sample identified
+        % models that actually have a parameter covariance estimate.
+        hasUncertainty = isa(modelSYS,'idmodel') && ~isempty(getcov(modelSYS));
+        if hasUncertainty && ~orderReducedToggle
+            systems{end+1} = rsample(modelSYS,20);
+            labels{end+1} = 'Parameter uncertainty samples';
+            lineSpecs{end+1} = 'c:';
         end
-        % change x-label location a bit!
-        %     vec_pos = get(get(gca, 'XLabel'), 'Position');
-        %     set(get(gca, 'XLabel'), 'Position', vec_pos + [ -2.5 0 0]);
-        xlh  = get(gca, 'XLabel');
-        xlh.Position(1) = xlh.Position(1) - abs(xlh.Position(1) * 0.5);
-
-
-        % Change Legend linewidth
-        hl = findobj(hobj,'type','line');
-        set(hl,'LineWidth',2);
-        ht = findobj(hobj,'type','text');
-        set(ht,'FontSize',12);
-
+        [FIG_GCF,BD] = create_bodeplot(BO,systems,labels,lineSpecs,FIG_HANDLE_VISIBILITY);
+        if hasUncertainty && ~orderReducedToggle && isa(BD,'controllib.chart.BodePlot')
+            BD.Responses(end).LineWidth = 0.5;
+            BD.Responses(end).Color = [110,163,163]/255;
+        end
 
         if DISPLAY_ZPK == 1
             % Create String for showing ZPK parameters
@@ -2367,24 +2196,19 @@ end
 
 
             % Add ZPK text annotation to plot
-            delete(findall(gcf,'type','annotation'));
-            txtAnno = annotation('textbox');
+            txtAnno = annotation(FIG_GCF,'textbox');
             txtAnno.String = Str;
             txtAnno.FontSize = 8;
             txtAnno.FontWeight = 'normal';
             txtAnno.LineStyle = 'None';
-            txtAnno.Position = [0.905 0.905 0.16  -0.23];
+            txtAnno.Position = [0.84 0.65 0.15 0.25];
             %txtAnno.BackgroundColor = [1 1 1]*0.9;
             drawnow;
         end
 
         %Code to display image preview inside the App
         if MATLAB_APP_TOGGLE == 1
-            figure(FIG_GCF);
-            saveas(FIG_GCF,'temp.png');
-            IMG = imread('temp.png');
-            imshow(IMG,'Parent',APP.UIAxes);
-            figure(APP.UIFigure);
+            display_app_plot(FIG_GCF,APP);
             % retain the final result figure
             if ~isfield(FIT,'ZPK')
                 delete(FIG_GCF);
@@ -2471,61 +2295,105 @@ end
 
 
 
-    function preview_bodeplot(BO,FIG_HANDLE,SYS_orig,SYS_processed,APP)
-        FIG_GCF = figure(FIG_HANDLE,'Visible',0);
+    function preview_bodeplot(BO,SYS_orig,SYS_processed,APP)
+        [FIG_GCF,BD] = create_bodeplot(BO,{SYS_orig,SYS_processed},...
+            {'Measurement ( original )','Measurement ( processed )'},...
+            {'-','-'},FIG_HANDLE_VISIBILITY);
 
-        BD = bodeplot(SYS_orig,SYS_processed,BO);
-        % set ylim to within the original levels defined by SYS_orig
-        YLIM = getoptions(BD,'YLim');
-        [SS,LL] = bounds(abs(squeeze(SYS_orig.ResponseData)));
-        YLIM(1)= {mag2db([SS,LL]) + [-5,+5]};   % mag2db with some margin
-        YLIM(2)= {[-180,180]};
-        XLIM = [max(min(SYS_orig.Frequency),APP.F_INITIALEditField.Value) min(max(SYS_orig.Frequency),APP.F_FINALEditField.Value)];
-        setoptions(BD,'YLim',YLIM)
-        try setoptions(BD,'XLim',XLIM);catch;end
-        set(findall(gcf,'-property','FontSize'),'FontSize',15)
-        set(findall(gcf,'type','line'),'linewidth',2)
+        % App frequency fields are in Hz; FRD frequency data are in rad/s.
+        % Convert both to the displayed units before applying plot limits.
+        displayedSYS = chgFreqUnit(SYS_orig,BO.FreqUnits);
+        unitFrequency = chgFreqUnit(frd(1,1,'FrequencyUnit','Hz'),BO.FreqUnits);
+        requestedRange = [APP.F_INITIALEditField.Value,APP.F_FINALEditField.Value]...
+            * unitFrequency.Frequency;
+        xLimits = [max(min(displayedSYS.Frequency),min(requestedRange)),...
+            min(max(displayedSYS.Frequency),max(requestedRange))];
+        if all(isfinite(xLimits)) && xLimits(1) > 0 && xLimits(1) < xLimits(2)
+            setoptions(BD,'XLim',xLimits);
+        end
+        display_app_plot(FIG_GCF,APP);
+        if ~FIG_HANDLE_VISIBILITY
+            delete(FIG_GCF);
+        end
+    end
 
-        % Add ToolbarExplorationButtons (for versions >= R2018b)
-        try
-            if datetime(version('-date')) > datetime('05-Aug-2018')
-                addToolbarExplorationButtons(gcf)
+    function [fig,BD] = create_bodeplot(BO,systems,labels,lineSpecs,visibility)
+        % LineSpec and BodeOptions work with both the legacy response plots
+        % (R2023b) and the chart objects introduced in R2024b. Never index
+        % hidden graphics children or move chart labels through gca.
+        fig = figure(FIG_HANDLE,'Visible',visibility);
+        BO.Title.FontSize = 15;
+        BO.XLabel.FontSize = 15;
+        BO.YLabel.FontSize = 15;
+        BO.TickLabel.FontSize = 15;
+        args = {};
+        for systemIndex = 1:numel(systems)
+            args{end+1} = systems{systemIndex};
+            % A bare '-' resets every legacy response to blue. Omit it so
+            % measurements retain their automatic, distinct colors.
+            if ~strcmp(lineSpecs{systemIndex},'-')
+                args{end+1} = lineSpecs{systemIndex};
             end
-        catch
         end
-        % change x-label location a bit!
-        %     vec_pos = get(get(gca, 'XLabel'), 'Position');
-        %     set(get(gca, 'XLabel'), 'Position', vec_pos + [ -2.5 0 0]);
-        xlh  = get(gca, 'XLabel');
-        xlh.Position(1) = xlh.Position(1) - abs(xlh.Position(1) * 0.5);
+        BD = bodeplot(args{:},BO);
 
-        %[lgnd, hobj, ~, ~] = legend({'Measurement ( original )','Measurement ( processed )','Focus Region',sprintf('Modeled Response ( Order: %d, GOF: %0.2f %s)',order(modelSYS),gof_tempo,'%')},'Location','Best');
-        [~, hobj, ~, ~] = legend({'Measurement ( original )','Measurement ( processed )'},'Location','Best');
-
-        % Change Legend linewidth
-        hl = findobj(hobj,'type','line');
-        set(hl,'LineWidth',2);
-        ht = findobj(hobj,'type','text');
-        set(ht,'FontSize',12);
-
-        figure(FIG_GCF);
-        %set(gcf,'XLIM',XLIM);
-        exportgraphics(FIG_GCF,'temp.png');
-        if APP.FIG_HANDLE_VISIBILITYCheckBox.Value == 0
-            delete(FIG_GCF)
+        magnitude = abs(systems{1}.ResponseData(:));
+        magnitude = magnitude(isfinite(magnitude));
+        if strcmpi(BO.MagUnits,'dB')
+            magnitude = mag2db(magnitude(magnitude > 0));
+            margin = 5;
+        else
+            margin = max(magnitude)*0.1;
+            margin = max(margin,eps);
         end
-        IMG = imread('temp.png');
-        imshow(IMG,'Parent',APP.UIAxes);
-        figure(APP.UIFigure);
+        yLimits = getoptions(BD,'YLim');
+        if ~isempty(magnitude)
+            yLimits{1} = [min(magnitude)-margin,max(magnitude)+margin];
+            if strcmpi(BO.MagUnits,'abs')
+                yLimits{1}(1) = max(0,yLimits{1}(1));
+            end
+        end
+        if strcmpi(BO.PhaseWrapping,'on') && strcmpi(BO.PhaseUnits,'deg')
+            yLimits{2} = BO.PhaseWrappingBranch + [0,360];
+        end
+        setoptions(BD,'YLim',yLimits);
 
-        %Code to display image preview inside the App
-        %saveas(FIG_GCF,'temp.png');
-        %IMG = imread('temp.png');
-        %imshow(IMG,'Parent',APP.UIAxes);
-        %imh = getframe(gca(FIG_GCF));
-        %imshow(imh.cdata,'Parent',APP.UIAxes);
-        %haX = findobj(FIG_GCF,'type','axes');
-        %copyobj(haX,APP.UIAxes);
+        % Modern charts expose response styling directly. Legacy plots use
+        % LineSpec above; a uniform width needs no assumptions about order.
+        if isa(BD,'controllib.chart.BodePlot')
+            for responseIndex = 1:numel(BD.Responses)
+                BD.Responses(responseIndex).LineWidth = 2;
+            end
+        else
+            % Legacy response plots defer data generation in hidden figures.
+            % Initialize once before hiding, otherwise exports contain axes
+            % and legends but no response curves.
+            fig.Visible = 'on';
+            drawnow;
+            fig.Visible = visibility;
+            set(findall(fig,'Type','line'),'LineWidth',2);
+        end
+        lgnd = legend(labels,'Location','best');
+        lgnd.FontSize = 12;
+        % R2026a+ exposes legend options on the chart itself.
+        if ~isprop(BD,'Legend')
+            lgnd.Box = 'off';
+        end
+    end
+
+    function display_app_plot(fig,app)
+        % Use a unique temporary file so previews never overwrite user data
+        % or require write access to the current folder.
+        imageFile = [tempname,'.png'];
+        imageCleanup = onCleanup(@() delete_plot_image(imageFile));
+        exportgraphics(fig,imageFile,'Resolution',120);
+        imshow(imread(imageFile),'Parent',app.UIAxes);
+    end
+
+    function delete_plot_image(imageFile)
+        if isfile(imageFile)
+            delete(imageFile);
+        end
     end
 
 

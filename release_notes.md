@@ -1,5 +1,25 @@
 # Latest
 
+## 11th Oct 2026 — source plotting compatibility fixes
+
+- Fix the R2026b preview failure caused by accessing `Position` on a Bode chart
+  label and enabling legacy exploration controls.
+- Replace multi-output legends and positional indexing of hidden graphics with
+  shared plotting code for previews, intermediate fits, final fits, and reduced
+  models. Preserve compatibility with the R2023b response-plot implementation.
+- Only sample uncertainty for identified models with covariance data; arbitrary
+  `UserData` no longer triggers `rsample`.
+- Keep preview frequency limits in the selected display units and avoid invalid
+  magnitude limits when the measured response includes zeros.
+- Initialize legacy plots before hiding them so saved plots contain their curves.
+- Replace legacy INI argument-count checks with `narginchk`.
+- Skip redundant utility-path updates when launched as an installed add-on.
+- Use unique temporary images for embedded previews and explicit figure handles
+  for exports. Restore warning settings after objective evaluations.
+- All nine plotting regression tests pass on MATLAB R2023b and R2026b.
+- Add `tests/fitTFPlotTest.m` and instructions for running the source checkout.
+  The existing packaged installer has not been rebuilt.
+
 ## 25th Oct 2022
 
 - Fixed Multi-file upload functionality

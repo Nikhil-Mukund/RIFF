@@ -56,6 +56,36 @@
             - Or type RIFF from the command line
 
 
+## Run the updated source checkout
+
+Close any open RIFF app windows, then run these commands from the repository root:
+
+```matlab
+addpath(fullfile(pwd,'src'),'-begin');
+clear fitTF
+RIFF
+```
+
+`which RIFF -all` and `which fitTF -all` should list this checkout's `src` files first.
+The existing `.mlappinstall` file is a previously built package; source changes do
+not update that package automatically. Use the commands above to run these fixes.
+
+## Plotting regression tests
+
+From the repository root, with the app's required toolboxes installed:
+
+```matlab
+results = runtests('tests/fitTFPlotTest.m');
+assertSuccess(results);
+```
+
+The suite covers visible and embedded previews, Hz/rad/s limits, zero-magnitude
+measurements, intermediate comparisons, covariance samples, fitting a known
+response, and MAT/FIG/PNG exports through both the command line and app callback.
+All nine tests passed on MATLAB R2023b and R2026b on 11 October 2026.
+Tests create temporary working folders and restore the MATLAB path and warning
+state. They do not overwrite measurement files in the repository.
+
 - **Input data format**
 
       - Text-files (.txt,.csv) 
