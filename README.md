@@ -11,37 +11,67 @@ from the command line through `fitTF.m`.
 [Download the latest stable release](https://github.com/Nikhil-Mukund/RIFF/releases/latest)
 · [Release notes](release_notes.md) · [Command-line API](#command-line-fitting)
 
+## What RIFF does
+
+- **Choose among fitting algorithms:** SysID AAA and N4SID-initialized `tfest`
+  are enabled by default; vector fitting, `invfreqs`, and `fitmagfrd` are also
+  available with their required toolboxes.
+- **Optimize around the fitting engine:** search pole count, fitting algorithm,
+  frequency limits, and weighting to maximize goodness of fit over multiple
+  trials. Choose surrogate optimization, pattern search, particle swarm,
+  `fmincon`, or optional BADS.
+- **Control model order and constraints:** bound the number of poles, choose
+  zero counts for compatible estimators, enforce stability or minimum phase,
+  and account for input/output delay.
+- **Condition noisy measurements:** smooth the complex frequency response,
+  estimate a noise floor, damp unphysical resonances, and emphasize reliable
+  samples with custom or coherence weights.
+- **Import and join instrument measurements:** map frequency/response columns
+  and units, read CSV/text, FRD, time-series, and SDF inputs, and combine
+  measurements spanning different frequency bands.
+- **Inspect fits interactively:** zoom, pan, and use data tips in embedded Bode
+  plots; compare intermediate trials with synchronized pole/zero parameters.
+- **Refine the final model manually:** drag poles and zeros or edit coordinates
+  and gain, see the response update, and reset each trial to its original fit.
+- **Use the same core from scripts:** `fitTF.m` supports fitting, import,
+  verification, and refinement. Export ZPK/FRD models, optional covariance,
+  MAT/FIG/PNG results, and LIGO FOTON-compatible second-order-section filters.
+
 ## Tutorials
 
-Short, captioned recordings of **RIFF v4.0.1 on MATLAB R2026b**, captured at the
-app's default window size. These workflows also apply to v4.1.0. All three
-videos total **0.71 MB** (about 99% smaller than the old GIF collection). Click a thumbnail to open its MP4. These scripted
-walkthroughs use actual app controls and plots; computation waits are omitted.
+These short, captioned previews **play and loop directly on this page**.
+Download the full-resolution MP4s for playback controls. All three animated
+previews total **1.72 MB**; the three MP4s total **0.71 MB**.
+
+Recorded with **RIFF v4.0.1 on MATLAB R2026b** at the app's default window size;
+these workflows also apply to v4.1.0. The walkthroughs use actual app controls
+and plots, with computation waits omitted.
 
 ### Fit and inspect
 
-[![Fit and inspect: AAA and tfest with live Bode plots](tutorials/demos/fitting.jpg)](tutorials/demos/fitting.mp4)
+[![Fit and inspect: AAA and tfest with live Bode plots](tutorials/demos/fitting.gif)](tutorials/demos/fitting.mp4?raw=true)
 
-[**Watch the fitting demo**](tutorials/demos/fitting.mp4) — Preview a measurement,
+[**Download the fitting MP4 · 23 s**](tutorials/demos/fitting.mp4?raw=true) — Preview a measurement,
 fit with AAA and tfest, and inspect the embedded Bode plots.
 
 ### Join frequency bands
 
-[![Join frequency bands: combine three instrument measurements](tutorials/demos/measurements.jpg)](tutorials/demos/measurements.mp4)
+[![Join frequency bands: combine three instrument measurements](tutorials/demos/measurements.gif)](tutorials/demos/measurements.mp4?raw=true)
 
-[**Watch the measurement-joining demo**](tutorials/demos/measurements.mp4) — Select
+[**Download the joining MP4 · 20 s**](tutorials/demos/measurements.mp4?raw=true) — Select
 and join three bundled SDF measurements covering different frequency bands.
 
 ### Verify and refine
 
-[![Verify and refine: inspect trial parameters and drag poles](tutorials/demos/refinement.jpg)](tutorials/demos/refinement.mp4)
+[![Verify and refine: inspect trial parameters and drag poles](tutorials/demos/refinement.gif)](tutorials/demos/refinement.mp4?raw=true)
 
-[**Watch the refinement demo**](tutorials/demos/refinement.mp4) — Inspect trial
+[**Download the refinement MP4 · 27 s**](tutorials/demos/refinement.mp4?raw=true) — Inspect trial
 parameters, drag poles, adjust gain, and reset to the original fit.
 
 The fitting/refinement example uses a synthetic response; the joining example
 uses the bundled SDF instrument files. See [demo details and reproduction](tutorials/README.md).
-These compact videos replace the old GIFs in the current source and installer;
+The MP4s are included in the source and installer. The README uses compact
+GIF previews for automatic playback;
 [archived tutorials remain in v3.0](https://github.com/Nikhil-Mukund/RIFF/tree/v3.0/tutorials).
 
 ## Flexible columns and coherence
@@ -103,27 +133,13 @@ zero-Hz row. Values are sorted and filtered together inside `fitTF`.
 ## What's new
 
 **v4.1.0 adds [flexible columns and coherence weighting](#flexible-columns-and-coherence)**
-in both the installer and `fitTF.m`. Map frequency and response columns, select
-units, and include optional weights or coherence. Supplied weights stay aligned
-through preprocessing and are used by minimum-phase fitting too.
+in both the installer and `fitTF.m`, including weight alignment during
+preprocessing and weighted minimum-phase fitting.
 
-This release also includes reliable measurement joining and the lightweight
-[current-app demos](#tutorials) introduced in v4.0.1, plus:
-
-- **SysID AAA and N4SID-initialized `tfest` are enabled by default.** RIFF compares
-  both candidates during optimization. AAA now uses System Identification Toolbox;
-  RF Toolbox is optional. The legacy RF AAA backend remains an explicit choice.
-- **Live Bode plots inside the app.** Zoom, pan, inspect data tips, and resize the
-  app without generating an image of an external figure. The separate figure
-  window is off by default and can be enabled when needed.
-- **One shared core.** Fitting, native plotting, Verify, parameter formatting,
-  and manual model refinement live inside `fitTF.m` for both app and script use.
-- **Optional pole/zero refinement after fitting.** Drag roots or enter precise
-  coordinates and gain, watch the response update, and reset each trial to its
-  fitted original. This complements RIFF's automatic fitting workflow.
-- **Reliable verification and export.** Model parameters follow the selected
-  intermediate fit. Manual edits have separate exports and do not overwrite the
-  optimizer's original results.
+The v4 series also adds SysID AAA by default, embedded interactive Bode plots,
+synchronized trial parameters, manual pole/zero refinement, reliable
+measurement joining, and these current-app walkthroughs. See the
+[release notes](release_notes.md) for details.
 
 ## Install and launch
 
@@ -327,9 +343,9 @@ After fitting, open **Pole/zero editor** to make small final adjustments:
 - Export to a separate workspace variable or MAT file. Original results remain
   unchanged; old covariance and optimizer rankings are omitted from edited fits.
 
-[![Watch Verify and pole/zero refinement in RIFF v4.0.1](tutorials/demos/refinement.jpg)](tutorials/demos/refinement.mp4)
+[![Watch Verify and pole/zero refinement in RIFF v4.0.1](tutorials/demos/refinement.gif)](tutorials/demos/refinement.mp4?raw=true)
 
-*Watch the short demo: select trials, move a pole, adjust gain, and reset.*
+*This preview loops automatically: select trials, move a pole, adjust gain, and reset.*
 
 The identical editor can be opened without launching the RIFF app:
 

@@ -7,14 +7,20 @@ videos are not wall-clock performance benchmarks. There is no audio.
 
 | Demo | Length | Video size | Workflow |
 |---|---:|---:|---|
-| [Fit and inspect](demos/fitting.mp4) | 23 s | 242 KiB | Select CSV data, preview, AAA + tfest, inspect embedded plots |
-| [Join frequency bands](demos/measurements.mp4) | 20 s | 212 KiB | Select three SDF measurements, join their bands, choose a fitting region |
-| [Verify and refine](demos/refinement.mp4) | 26.8 s | 244 KiB | Select intermediate trials, inspect parameters, zoom to/drag a pole, change gain, reset |
+| [Fit and inspect](demos/fitting.mp4?raw=true) | 23 s | 242 KiB | Select CSV data, preview, AAA + tfest, inspect embedded plots |
+| [Join frequency bands](demos/measurements.mp4?raw=true) | 20 s | 212 KiB | Select three SDF measurements, join their bands, choose a fitting region |
+| [Verify and refine](demos/refinement.mp4?raw=true) | 26.8 s | 244 KiB | Select intermediate trials, inspect parameters, zoom to/drag a pole, change gain, reset |
 
-The MP4s total **0.71 MB**, compared with **63.46 MB** for the previous GIF
-collection (about 99% smaller). JPG thumbnails load in the README; videos play
-on demand. Encoding: H.264, 1280 pixels wide, 24 fps, yuv420p, fast-start metadata.
-Exact sizes and durations are in [manifest.json](demos/manifest.json).
+The README embeds full-width, looping **GIF previews** so the walkthroughs
+animate on the repository's main page. The three previews total **1.72 MB**,
+about 97% smaller than the previous **63.46 MB** GIF collection. Each preview
+is 960 pixels wide at 6 fps, uses a 128-color palette, and retains the full
+walkthrough and captions.
+
+The full-resolution MP4s total **0.71 MB**. Encoding: H.264, 1280 pixels wide,
+24 fps, yuv420p, fast-start metadata. Download them for playback controls and
+higher resolution. JPG posters remain available for static previews. Exact
+sizes and durations are in [manifest.json](demos/manifest.json).
 
 The fit/refinement example uses a reproducible synthetic response with a small
 perturbation. Its GOF is illustrative, not a claim about instrument accuracy.
@@ -47,7 +53,8 @@ python3 tutorials/encode_demos.py /path/to/riff-demos tutorials/demos
 The capture script uses a temporary working directory, copies the bundled input
 files, and restores the MATLAB path, working folder, and random state afterward.
 It leaves PNG frames and `frames.csv` in the chosen output folder for inspection.
-The encoder adds captions below the actual app image and creates MP4s/posters.
+The encoder adds captions below the actual app image and creates MP4s, JPG
+posters, and looping GIF previews.
 Only the compact outputs and scripts ship; raw frames stay outside the repository.
 
 The older specialized walkthroughs (BADS, delay estimation, filtering, and others)

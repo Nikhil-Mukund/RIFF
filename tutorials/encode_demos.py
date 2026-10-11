@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Encode make_demos.m frames as compact, captioned H.264 walkthroughs.
+"""Encode make_demos.m frames as captioned H.264 videos and looping GIF previews.
 
 Usage: python3 tutorials/encode_demos.py /tmp/riff-demos tutorials/demos
 Requires ffmpeg on PATH. Source screenshots stay in the temporary frame folder.
@@ -61,6 +61,17 @@ for clip in dict.fromkeys(row['Clip'] for row in rows):
     poster = args.output / f'{clip}.jpg'
     subprocess.run([ffmpeg, '-y', '-v', 'error', '-ss', str(poster_time), '-i', str(video),
                     '-frames:v', '1', '-q:v', '3', str(poster)], check=True)
-    metadata.append(dict(clip=clip, duration_seconds=round(elapsed,2), bytes=video.stat().st_size))
+    # GitHub README image embeds animate GIFs; repository MP4 links are downloads.
+    # Sparse UI changes compress well with a palette and transparent delta frames.
+    preview = args.output / f'{clip}.gif'
+    subprocess.run([ffmpeg, '-y', '-v', 'error', '-i', str(video),
+                    '-filter_complex',
+                    'fps=6,scale=960:-2:flags=lanczos,split[a][b];'
+                    '[a]palettegen=max_colors=128:stats_mode=diff[p];'
+                    '[b][p]paletteuse=dither=none:diff_mode=rectangle',
+                    '-loop', '0', str(preview)], check=True)
+    metadata.append(dict(clip=clip, duration_seconds=round(elapsed,2),
+                         bytes=video.stat().st_size, preview_bytes=preview.stat().st_size,
+                         preview_width=960, preview_fps=6))
     print(f'{video}: {elapsed:.1f} s, {video.stat().st_size/1024:.0f} KiB', flush=True)
 (args.output / 'manifest.json').write_text(json.dumps(metadata, indent=2)+'\n')
