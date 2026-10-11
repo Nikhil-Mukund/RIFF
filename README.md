@@ -11,6 +11,95 @@ from the command line through `fitTF.m`.
 [Download the latest stable release](https://github.com/Nikhil-Mukund/RIFF/releases/latest)
 · [Release notes](release_notes.md) · [Command-line API](#command-line-fitting)
 
+## Tutorials
+
+Short, captioned recordings of **RIFF v4.0.1 on MATLAB R2026b**, captured at the
+app's default window size. These workflows also apply to v4.1.0. All three
+videos total **0.71 MB** (about 99% smaller than the old GIF collection). Click a thumbnail to open its MP4. These scripted
+walkthroughs use actual app controls and plots; computation waits are omitted.
+
+### Fit and inspect
+
+[![Fit and inspect: AAA and tfest with live Bode plots](tutorials/demos/fitting.jpg)](tutorials/demos/fitting.mp4)
+
+[**Watch the fitting demo**](tutorials/demos/fitting.mp4) — Preview a measurement,
+fit with AAA and tfest, and inspect the embedded Bode plots.
+
+### Join frequency bands
+
+[![Join frequency bands: combine three instrument measurements](tutorials/demos/measurements.jpg)](tutorials/demos/measurements.mp4)
+
+[**Watch the measurement-joining demo**](tutorials/demos/measurements.mp4) — Select
+and join three bundled SDF measurements covering different frequency bands.
+
+### Verify and refine
+
+[![Verify and refine: inspect trial parameters and drag poles](tutorials/demos/refinement.jpg)](tutorials/demos/refinement.mp4)
+
+[**Watch the refinement demo**](tutorials/demos/refinement.mp4) — Inspect trial
+parameters, drag poles, adjust gain, and reset to the original fit.
+
+The fitting/refinement example uses a synthetic response; the joining example
+uses the bundled SDF instrument files. See [demo details and reproduction](tutorials/README.md).
+These compact videos replace the old GIFs in the current source and installer;
+[archived tutorials remain in v3.0](https://github.com/Nikhil-Mukund/RIFF/tree/v3.0/tutorials).
+
+## Flexible columns and coherence
+
+The column mapper and coherence weighting are included in the v4.1.0 installer
+and source checkout.
+
+In **Input → TextFile**, upload/select a CSV or text measurement and choose
+**Map columns...**. The dialog previews the first rows and suggests columns
+from clear headers. Select frequency, response representation, units, and any
+weight or coherence columns, then **Apply mapping** and **Preview Bodeplot**.
+The response can be complex values, real/imaginary coefficients, or
+magnitude/phase with linear/dB and degree/radian units. Headerless files work
+with explicit selections. The original six fixed-format choices still work.
+
+![Column mapping with a synthetic example and optional coherence](tutorials/column_mapping.png)
+
+Coherence is used directly as a **0–1 fit weight by default**. If a separate
+weight column is present, the effective weight is **weight × coherence**.
+Uncheck **Use coherence as a fit weight** to ignore coherence while retaining
+any explicit weights. Supplied weights take precedence over the phase-smoothness
+estimate; RIFF keeps them aligned when sorting, removing zero-Hz rows, and
+resampling. Coherence is not an estimated variance or uncertainty bound.
+
+Mappings are per file and last for the app session. RIFF rereads the file for
+each preview/fit and saves the mapping and imported values in `FIT.input.Import`.
+It records original and processed frequency/weight vectors in `FIT.weighting`.
+Named columns can move; missing/renamed columns require remapping. Invalid
+samples, duplicate positive frequencies, percentage coherence, and all-zero
+effective weights produce an error before fitting.
+
+The same importer is available without the app:
+
+```matlab
+% With headers such as FrequencyHz, Real, Imag, Weight, Coherence:
+info = fitTF('inspect','measurement.csv'); % Preview and suggested mapping
+D = fitTF('import','measurement.csv');    % Validate/convert without fitting
+FIT = fitTF('FNAME','measurement.csv','FORMAT','auto');
+
+% Or explicitly map headerless or instrument-specific columns:
+map = struct('Frequency',1,'FrequencyUnit','Hz', ...
+    'ResponseType','mag-phase','Magnitude',2,'MagnitudeUnit','dB', ...
+    'Phase',3,'PhaseUnit','deg','Coherence',4,'Weight',0, ...
+    'UseCoherence',true);
+FIT = fitTF('FNAME','measurement.csv','COLUMN_MAP',map);
+
+% Already have vectors? Frequencies are in Hz.
+FIT = fitTF('F',f,'TF',H,'COHERENCE',coherence,'CUSTOM_WEIGHT',weight);
+% Use 'USE_COHERENCE',false to ignore coherence for this fit.
+```
+
+Column selectors accept a name or a one-based index; `0` deselects an optional
+column. Automatic detection requires clear units (for example `FrequencyHz`,
+`FrequencyRad_s`, `Magnitude_dB`, `Phase_deg`). Generic `Frequency`, `Magnitude`,
+and `Phase` headers need explicit units. If you add vector weights to a mapped
+file fit, those vectors must match the **original file rows**, including any
+zero-Hz row. Values are sorted and filtered together inside `fitTF`.
+
 ## What's new
 
 **v4.1.0 adds [flexible columns and coherence weighting](#flexible-columns-and-coherence)**
@@ -137,62 +226,6 @@ The returned `FIT` structure contains the ZPK model, measured and modeled
 responses, GOF, intermediate fits, and optimization settings. Covariance fields
 are populated when requested and supported. Saved fits can include MAT, FIG,
 PNG, and LIGO FOTON-compatible second-order-section filter files.
-
-## Flexible columns and coherence
-
-The column mapper and coherence weighting are included in the v4.1.0 installer
-and source checkout.
-
-In **Input → TextFile**, upload/select a CSV or text measurement and choose
-**Map columns...**. The dialog previews the first rows and suggests columns
-from clear headers. Select frequency, response representation, units, and any
-weight or coherence columns, then **Apply mapping** and **Preview Bodeplot**.
-The response can be complex values, real/imaginary coefficients, or
-magnitude/phase with linear/dB and degree/radian units. Headerless files work
-with explicit selections. The original six fixed-format choices still work.
-
-![Column mapping with a synthetic example and optional coherence](tutorials/column_mapping.png)
-
-Coherence is used directly as a **0–1 fit weight by default**. If a separate
-weight column is present, the effective weight is **weight × coherence**.
-Uncheck **Use coherence as a fit weight** to ignore coherence while retaining
-any explicit weights. Supplied weights take precedence over the phase-smoothness
-estimate; RIFF keeps them aligned when sorting, removing zero-Hz rows, and
-resampling. Coherence is not an estimated variance or uncertainty bound.
-
-Mappings are per file and last for the app session. RIFF rereads the file for
-each preview/fit and saves the mapping and imported values in `FIT.input.Import`.
-It records original and processed frequency/weight vectors in `FIT.weighting`.
-Named columns can move; missing/renamed columns require remapping. Invalid
-samples, duplicate positive frequencies, percentage coherence, and all-zero
-effective weights produce an error before fitting.
-
-The same importer is available without the app:
-
-```matlab
-% With headers such as FrequencyHz, Real, Imag, Weight, Coherence:
-info = fitTF('inspect','measurement.csv'); % Preview and suggested mapping
-D = fitTF('import','measurement.csv');    % Validate/convert without fitting
-FIT = fitTF('FNAME','measurement.csv','FORMAT','auto');
-
-% Or explicitly map headerless or instrument-specific columns:
-map = struct('Frequency',1,'FrequencyUnit','Hz', ...
-    'ResponseType','mag-phase','Magnitude',2,'MagnitudeUnit','dB', ...
-    'Phase',3,'PhaseUnit','deg','Coherence',4,'Weight',0, ...
-    'UseCoherence',true);
-FIT = fitTF('FNAME','measurement.csv','COLUMN_MAP',map);
-
-% Already have vectors? Frequencies are in Hz.
-FIT = fitTF('F',f,'TF',H,'COHERENCE',coherence,'CUSTOM_WEIGHT',weight);
-% Use 'USE_COHERENCE',false to ignore coherence for this fit.
-```
-
-Column selectors accept a name or a one-based index; `0` deselects an optional
-column. Automatic detection requires clear units (for example `FrequencyHz`,
-`FrequencyRad_s`, `Magnitude_dB`, `Phase_deg`). Generic `Frequency`, `Magnitude`,
-and `Phase` headers need explicit units. If you add vector weights to a mapped
-file fit, those vectors must match the **original file rows**, including any
-zero-Hz row. Values are sorted and filtered together inside `fitTF`.
 
 ## Combining measurements across frequency bands
 
@@ -344,23 +377,6 @@ contains the new core functionality. The optional RF comparison test requires
 RF Toolbox. See [release notes](release_notes.md) for the release validation.
 
 The release build runs the suite before packaging. See [build instructions](https://github.com/Nikhil-Mukund/RIFF/blob/v4.1.0/packaging/README.md).
-
-## Tutorials
-
-Short, captioned recordings of **RIFF v4.0.1 on MATLAB R2026b**, captured at the
-app's default window size. All three videos total **0.71 MB** (about 99% smaller
-than the old GIF collection). Click a thumbnail to open its MP4. These scripted
-walkthroughs use actual app controls and plots; computation waits are omitted.
-
-| Fit and inspect | Join frequency bands | Verify and refine |
-|---|---|---|
-| [![Fitting demo](tutorials/demos/fitting.jpg)](tutorials/demos/fitting.mp4) | [![Combining measurements demo](tutorials/demos/measurements.jpg)](tutorials/demos/measurements.mp4) | [![Manual refinement demo](tutorials/demos/refinement.jpg)](tutorials/demos/refinement.mp4) |
-| AAA + tfest, preview, embedded Bode plots | Select and join three bundled SDF bands | Trial parameters, pole dragging, gain, reset |
-
-The fitting/refinement example uses a synthetic response; the joining example
-uses the bundled SDF instrument files. See [demo details and reproduction](tutorials/README.md).
-These compact videos replace the old GIFs in the current source and installer;
-[archived tutorials remain in v3.0](https://github.com/Nikhil-Mukund/RIFF/tree/v3.0/tutorials).
 
 ## Background and acknowledgements
 
