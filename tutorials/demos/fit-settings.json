@@ -1,0 +1,31 @@
+{
+  "measurement": "isolated_transmission.txt",
+  "requested_band_hz": [
+    0.04,
+    20
+  ],
+  "overview_band_hz": [
+    0.03,
+    40
+  ],
+  "optimized_band_hz": [
+    0.033075674110264325,
+    22.317027764335958
+  ],
+  "algorithm": "tfest",
+  "order": 12,
+  "gof": 47.597800266706294,
+  "smoothing_method": 7,
+  "smoothing_samples": 7,
+  "trials": 4,
+  "seed": 42,
+  "winning_weight": "INVERSE",
+  "stable": true,
+  "optimizer": "FMINCON",
+  "function_evaluations": 20,
+  "pole_bounds": [
+    12,
+    24
+  ],
+  "max_tfest_zeros": 23
+}

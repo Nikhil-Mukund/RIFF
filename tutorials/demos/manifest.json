@@ -1,25 +1,25 @@
 [
   {
     "clip": "fitting",
-    "duration_seconds": 23.0,
-    "bytes": 247579,
-    "preview_bytes": 582109,
+    "duration_seconds": 32.0,
+    "bytes": 433879,
+    "preview_bytes": 898531,
     "preview_width": 960,
     "preview_fps": 6
   },
   {
     "clip": "refinement",
-    "duration_seconds": 26.8,
-    "bytes": 250259,
-    "preview_bytes": 549989,
+    "duration_seconds": 29.8,
+    "bytes": 339123,
+    "preview_bytes": 736444,
     "preview_width": 960,
     "preview_fps": 6
   },
   {
     "clip": "measurements",
-    "duration_seconds": 20.0,
-    "bytes": 216802,
-    "preview_bytes": 587140,
+    "duration_seconds": 23.0,
+    "bytes": 346477,
+    "preview_bytes": 892469,
     "preview_width": 960,
     "preview_fps": 6
   }

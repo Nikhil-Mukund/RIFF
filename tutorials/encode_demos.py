@@ -19,6 +19,7 @@ ffmpeg = shutil.which('ffmpeg')
 if not ffmpeg:
     raise SystemExit('Install ffmpeg and put it on PATH before encoding.')
 args.output.mkdir(parents=True, exist_ok=True)
+shutil.copyfile(args.frames / 'fit-settings.json', args.output / 'fit-settings.json')
 rows = list(csv.DictReader((args.frames / 'frames.csv').open()))
 metadata = []
 # Prefer an explicit installed font to avoid fontconfig cache dependencies.
@@ -28,6 +29,13 @@ font = next((path for path in fonts if path.is_file()), None)
 font_option = f"fontfile='{font}':" if font else ''
 for clip in dict.fromkeys(row['Clip'] for row in rows):
     frames = [row for row in rows if row['Clip'] == clip]
+    marker = {'fitting':'Best fit:', 'refinement':'Inspect the manual response',
+              'measurements':'Preview the combined response'}[clip]
+    result_frame = next(frame for frame in frames if marker in frame['Caption'])
+    # Lead each looping preview with its result so the README immediately
+    # shows the broadband response. The setup/controls follow this short peek.
+    frames.insert(0, dict(result_frame, Seconds='3',
+                          Caption='Result preview | setup and controls follow'))
     timeline, captions, elapsed = [], [], 0.0
     for index, row in enumerate(frames):
         frame = (args.frames / row['File']).resolve()
@@ -57,7 +65,9 @@ for clip in dict.fromkeys(row['Clip'] for row in rows):
                     '-i', str(playlist), '-vf', ','.join(filters), '-t', str(elapsed),
                     '-r', '24', '-c:v', 'libx264', '-preset', 'slow', '-crf', '27',
                     '-pix_fmt', 'yuv420p', '-an', '-movflags', '+faststart', str(video)], check=True)
-    poster_time = {'fitting':12, 'refinement':17.2, 'measurements':8}[clip]
+    # Select genuine result frames, rather than hard-coding walkthrough times.
+    poster_caption = next(caption for caption in captions if marker in caption['text'])
+    poster_time = poster_caption['start'] + min(1, (poster_caption['end']-poster_caption['start'])/2)
     poster = args.output / f'{clip}.jpg'
     subprocess.run([ffmpeg, '-y', '-v', 'error', '-ss', str(poster_time), '-i', str(video),
                     '-frames:v', '1', '-q:v', '3', str(poster)], check=True)

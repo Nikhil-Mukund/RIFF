@@ -41,36 +41,43 @@ from the command line through `fitTF.m`.
 
 These short, captioned previews **play and loop directly on this page**.
 Download the full-resolution MP4s for playback controls. All three animated
-previews total **1.72 MB**; the three MP4s total **0.71 MB**.
+previews total **2.53 MB**; the three MP4s total **1.12 MB**.
 
-Recorded with **RIFF v4.0.1 on MATLAB R2026b** at the app's default window size;
-these workflows also apply to v4.1.0. The walkthroughs use actual app controls
-and plots, with computation waits omitted.
+Recorded with **RIFF v4.1.0 on MATLAB R2026b** at the app's default window size.
+The walkthroughs use actual app controls and plots, with computation waits omitted.
+The fitting and refinement demos now use the difficult bundled
+**`isolated_transmission.txt` measurement**: a deep notch, several resonances,
+noisy high-frequency data, and repeated phase wraps. The overview spans
+**0.03–40 Hz**, with a requested fitting band of **0.04–20 Hz**.
 
 ### Fit and inspect
 
 [![Fit and inspect: AAA and tfest with live Bode plots](tutorials/demos/fitting.gif)](tutorials/demos/fitting.mp4?raw=true)
 
-[**Download the fitting MP4 · 23 s**](tutorials/demos/fitting.mp4?raw=true) — Preview a measurement,
-fit with AAA and tfest, and inspect the embedded Bode plots.
+[**Download the fitting MP4 · 32 s**](tutorials/demos/fitting.mp4?raw=true) — Preview the real
+measurement, smooth it, run AAA + tfest trials across 12–24 poles, and inspect
+the broad response. The recorded best fit has **12 poles and GOF 47.60%**;
+remaining mismatches and the noisy tail stay visible.
 
 ### Join frequency bands
 
 [![Join frequency bands: combine three instrument measurements](tutorials/demos/measurements.gif)](tutorials/demos/measurements.mp4?raw=true)
 
-[**Download the joining MP4 · 20 s**](tutorials/demos/measurements.mp4?raw=true) — Select
+[**Download the joining MP4 · 23 s**](tutorials/demos/measurements.mp4?raw=true) — Select
 and join three bundled SDF measurements covering different frequency bands.
 
 ### Verify and refine
 
 [![Verify and refine: inspect trial parameters and drag poles](tutorials/demos/refinement.gif)](tutorials/demos/refinement.mp4?raw=true)
 
-[**Download the refinement MP4 · 27 s**](tutorials/demos/refinement.mp4?raw=true) — Inspect trial
+[**Download the refinement MP4 · 30 s**](tutorials/demos/refinement.mp4?raw=true) — Inspect trial
 parameters, drag poles, adjust gain, and reset to the original fit.
 
-The fitting/refinement example uses a synthetic response; the joining example
-uses the bundled SDF instrument files. See [demo details and reproduction](tutorials/README.md).
-The MP4s are included in the source and installer. The README uses compact
+All three demos use bundled instrument measurements. GOF is RIFF's score on
+the processed fitting region, rather than an independent validation result.
+See [demo data, settings, and reproduction](tutorials/README.md).
+The updated recordings are available in the source checkout; the published
+v4.1.0 installer retains its original recordings. The README uses compact
 GIF previews for automatic playback;
 [archived tutorials remain in v3.0](https://github.com/Nikhil-Mukund/RIFF/tree/v3.0/tutorials).
 
@@ -343,7 +350,7 @@ After fitting, open **Pole/zero editor** to make small final adjustments:
 - Export to a separate workspace variable or MAT file. Original results remain
   unchanged; old covariance and optimizer rankings are omitted from edited fits.
 
-[![Watch Verify and pole/zero refinement in RIFF v4.0.1](tutorials/demos/refinement.gif)](tutorials/demos/refinement.mp4?raw=true)
+[![Watch Verify and pole/zero refinement in RIFF v4.1.0](tutorials/demos/refinement.gif)](tutorials/demos/refinement.mp4?raw=true)
 
 *This preview loops automatically: select trials, move a pole, adjust gain, and reset.*
 
