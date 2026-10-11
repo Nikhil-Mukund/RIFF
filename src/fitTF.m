@@ -1,6 +1,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% fitTF.m — RIFF v4.0 (package version 4.0.0), MATLAB R2026b+
+% fitTF.m — RIFF v4.0.1 (package version 4.0.1), MATLAB R2026b+
 %
 % DESCRIPTION: Fits a stable transfer function to match the measured
 % response. Accepts inputs in multiple format (see below). Makes use of
@@ -23,6 +23,14 @@
 %       Returns ROUTINE, AAA_BACKEND and ESTIMATE_UNCERTAINITY.
 %       The current release targets MATLAB R2026b. Use the earlier major
 %       RIFF release for MATLAB R2023b.
+%
+%    COMBINE MEASUREMENTS (without running a fit):
+%       data = fitTF('combine',files,dF); % SDF paths; dF in Hz (default .25)
+%       data = fitTF('combine',sets,dF);  % Struct array: F (Hz), TF (complex)
+%       Outputs: F, TF, FRD, Measurements, BodeOptions, Coverage.
+%       Duplicate frequencies and overlaps are averaged in complex form.
+%       Samples outside measured bands are omitted. Input order is arbitrary.
+%       Optional BO and plotToggle follow dF; plotting defaults to false.
 %
 %    VERIFY AND MANUAL ADJUSTMENT (same core as the app):
 %       fitTF('verify',FIT,index);    % Standalone plot; 0 = best, 1..N = trial
@@ -217,7 +225,7 @@
 %                   installed these already).
 %                  -> Added GUI option to select fitting routine 
 %                  -> Changed TFEST (and in APP) default NUM_ZEROS to NUM_POLES
-% COMPATIBILITY: MATLAB R2023b+
+% COMPATIBILITY: MATLAB R2026b+
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -240,6 +248,10 @@ fittingDefaults = struct('ROUTINE',[2 5],'AAA_BACKEND','sysid',...
     'ESTIMATE_UNCERTAINITY',0);
 if nargin >= 1 && (ischar(varargin{1}) || (isstring(varargin{1}) && isscalar(varargin{1})))
     switch lower(char(varargin{1}))
+        case 'combine'
+            narginchk(2,5);
+            FIT = riff_combine_measurements(varargin{2:end});
+            return
         case 'defaults'
             narginchk(1,1);
             FIT = fittingDefaults;
@@ -712,7 +724,8 @@ end
 
 if exist('SDF_DATASETS','var')
     disp('Analysing HP/Agilent/KeySight SDF .DAT files...')
-    [TF,f,~,~,~] = combineTFs(SDF_DATASETS,SDF_DATASET_FREQ_RESO,BO,0);
+    combined = riff_combine_measurements(SDF_DATASETS,SDF_DATASET_FREQ_RESO,BO,false);
+    TF = combined.TF; f = combined.F;
 end
 
 if exist('AO','var')
@@ -3231,4 +3244,113 @@ function editor = create_model_editor(result,varargin)
         if obj.Deleting, error('RIFF:EditorClosed','This editing session is closed.'); end
     end
 
+end
+
+function combined = riff_combine_measurements(dataSets,dF,BO,plotToggle)
+% Combine on a shared Hz grid; average complex responses only where measured.
+if nargin < 2 || isempty(dF), dF = 0.25; end
+if nargin < 3 || isempty(BO)
+    BO = bodeoptions;
+    BO.FreqUnits = 'Hz'; BO.PhaseWrapping = 'on';
+    BO.PhaseWrappingBranch = -180; BO.Grid = 'on';
+end
+if nargin < 4 || isempty(plotToggle), plotToggle = false; end
+validateattributes(dF,{'numeric'},{'real','scalar','finite','positive'},mfilename,'dF');
+validateattributes(plotToggle,{'logical','numeric'},{'scalar','binary'},mfilename,'plotToggle');
+if ~isa(BO,'plotopts.BodeOptions')
+    error('RIFF:CombineOptions','Supply a bodeoptions object for BO.');
+end
+if isstruct(dataSets)
+    if isempty(dataSets) || ~all(isfield(dataSets,{'F','TF'}))
+        error('RIFF:CombineInput','Measurement structures must contain F (Hz) and TF.');
+    end
+    names = "Measurement " + (1:numel(dataSets));
+elseif ischar(dataSets) || isstring(dataSets) || iscellstr(dataSets)
+    names = string(dataSets);
+    if isempty(names) || ~isvector(names) || any(ismissing(names) | strlength(names)==0)
+        error('RIFF:CombineInput','Select at least one SDF file.');
+    end
+    names = unique(names(:)','stable');
+    utilsFolder = fullfile(fileparts(mfilename('fullpath')),'utils');
+    oldPath = path;
+    pathCleanup = onCleanup(@()path(oldPath));
+    if ~any(strcmp(strsplit(path,pathsep),utilsFolder)), addpath(utilsFolder); end
+    dataSets = repmat(struct('F',[],'TF',[]),size(names));
+    for k = 1:numel(names)
+        if ~isfile(names(k))
+            error('RIFF:SDFFile','SDF file does not exist: %s',names(k));
+        end
+        imported = SDF_import(char(names(k)));
+        if numel(imported.SDF_XDATA_HDR) ~= 1 || numel(imported.SDF_YDATA_HDR) ~= 1
+            error('RIFF:SDFTrace','Select a single frequency-response trace per SDF file: %s',names(k));
+        end
+        f = imported.SDF_XDATA_HDR.zz_data;
+        raw = imported.SDF_YDATA_HDR.zz_data;
+        if ~isvector(f) || ~isvector(raw)
+            error('RIFF:SDFTrace','Expected vector frequency-response data in %s.',names(k));
+        end
+        if numel(raw) == 2*numel(f)
+            response = raw(1:2:end) + 1i*raw(2:2:end);
+        elseif numel(raw) == numel(f)
+            response = raw;
+        else
+            error('RIFF:SDFTrace','Frequency and response lengths do not match in %s.',names(k));
+        end
+        dataSets(k).F = f; dataSets(k).TF = response;
+    end
+else
+    error('RIFF:CombineInput','Use SDF filenames or structures with F (Hz) and TF.');
+end
+measurements = repmat(struct('FF',[],'TF',[],'FRD',[],'Name',""),1,numel(dataSets));
+bounds = zeros(numel(dataSets),2);
+for k = 1:numel(dataSets)
+    f = dataSets(k).F; response = dataSets(k).TF;
+    validateattributes(f,{'numeric'},{'real','vector'},mfilename,'F');
+    validateattributes(response,{'numeric'},{'vector'},mfilename,'TF');
+    if numel(f) ~= numel(response)
+        error('RIFF:CombineLength','F and TF must have the same length in %s.',names(k));
+    end
+    f = double(f(:)); response = double(response(:));
+    keep = isfinite(f) & f > 0 & isfinite(response);
+    f = f(keep); response = response(keep);
+    [f,~,group] = unique(f,'sorted');
+    % Repeated samples at one frequency are repeated complex measurements.
+    response = accumarray(group,real(response),[],@mean) + ...
+        1i*accumarray(group,imag(response),[],@mean);
+    if numel(f) < 2
+        error('RIFF:CombineSamples','Need at least two distinct positive finite frequencies in %s.',names(k));
+    end
+    measurements(k).FF = f'; measurements(k).TF = response.';
+    measurements(k).FRD = frd(response,2*pi*f);
+    measurements(k).Name = names(k);
+    bounds(k,:) = [f(1),f(end)];
+end
+% Canonical ordering gives consistent accumulation when file order changes.
+[~,order] = sortrows([bounds,(1:size(bounds,1))'],[1 2]);
+measurements = measurements(order); bounds = bounds(order,:);
+fmin = min(bounds(:,1)); fmax = max(bounds(:,2));
+if (fmax-fmin)/dF > 2e6
+    error('RIFF:CombineResolution','The requested resolution exceeds two million samples. Increase dF.');
+end
+f = unique([(fmin:dF:fmax)';bounds(:)]);
+response = complex(zeros(size(f))); coverage = zeros(size(f));
+for k = 1:numel(measurements)
+    use = f >= bounds(k,1) & f <= bounds(k,2);
+    values = interp1(measurements(k).FF,measurements(k).TF,f(use),'linear');
+    response(use) = response(use) + values;
+    coverage(use) = coverage(use) + 1;
+end
+keep = coverage > 0; % Never synthesize samples in unmeasured gaps.
+f = f(keep); coverage = coverage(keep); response = response(keep)./coverage;
+combined = struct('F',f,'TF',response,'FRD',frd(response,2*pi*f),...
+    'Measurements',measurements,'BodeOptions',BO,'Coverage',coverage);
+if plotToggle
+    fig = figure('Name','Combined measurements','NumberTitle','off');
+    models = {measurements.FRD}; models{end+1} = combined.FRD;
+    chart = bodeplot(fig,models{:},BO);
+    labels = string({measurements.Name});
+    [~,labels,extensions] = fileparts(labels);
+    labels = labels + extensions;
+    legend(chart,[labels,"Combined response"],'Interpreter','none','Location','best');
+end
 end

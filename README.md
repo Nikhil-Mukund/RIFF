@@ -1,17 +1,21 @@
-# RIFF v4.0: Robust IIR Fitting & Filtering
+# RIFF v4.0.1: Robust IIR Fitting & Filtering
 
 Fit measured transfer functions with robust IIR zero-pole-gain models. RIFF combines
 instrument-data import, frequency weighting, model-order and algorithm selection,
 and fit verification in a guided MATLAB app. The same fitting engine is available
 from the command line through `fitTF.m`.
 
-**v4.0.0 · MATLAB R2026b and newer.** Validated on R2026b.
+**v4.0.1 · MATLAB R2026b and newer.** Validated on R2026b.
 [R2023b users: download the previous v3.0 release.](https://github.com/Nikhil-Mukund/RIFF/releases/tag/v3.0)
 
 [Download the latest stable release](https://github.com/Nikhil-Mukund/RIFF/releases/latest)
 · [Release notes](release_notes.md) · [Command-line API](#command-line-fitting)
 
 ## What's new
+
+**v4.0.1 fixes joining measurements across frequency bands and replaces the old
+large GIF tutorials with short current-app MP4 demos.** See [tutorials](#tutorials).
+The v4.0 fitting and interactive plotting features remain available:
 
 - **SysID AAA and N4SID-initialized `tfest` are enabled by default.** RIFF compares
   both candidates during optimization. AAA now uses System Identification Toolbox;
@@ -42,7 +46,7 @@ Close existing RIFF windows when upgrading. Remove or disable older RIFF
 installations that precede the new one on your path, then run `clear fitTF RIFF`.
 Use `which RIFF -all` and `which fitTF -all` to check which installation runs.
 If MATLAB reports an older package with the same ID, uninstall that older add-on
-before installing v4.0, or use its documented version-replacement option:
+before installing the new version, or use its documented version-replacement option:
 
 ```matlab
 mpminstall('RIFF.mltbx',AllowVersionReplacement=true);
@@ -83,7 +87,7 @@ RIFF
 Keep the original `src/utils` folder with `fitTF.m`. It contains instrument
 import, configuration, and filtering utilities. All runtime helpers added in
 this release are local or nested functions inside `fitTF.m`; the app supplies
-its UI layout and callbacks. Build instructions are in [packaging](https://github.com/Nikhil-Mukund/RIFF/blob/v4.0/packaging/README.md).
+its UI layout and callbacks. Build instructions are in [packaging](https://github.com/Nikhil-Mukund/RIFF/blob/v4.0.1/packaging/README.md).
 
 ## Fitting measurements
 
@@ -128,6 +132,43 @@ The returned `FIT` structure contains the ZPK model, measured and modeled
 responses, GOF, intermediate fits, and optimization settings. Covariance fields
 are populated when requested and supported. Saved fits can include MAT, FIG,
 PNG, and LIGO FOTON-compatible second-order-section filter files.
+
+## Combining measurements across frequency bands
+
+For measurements of the **same system and response channel** taken over different
+frequency ranges, select **HP_Agilent_Keysight_SDF** under Input. In the
+**SpectrumAnalyzer** list, multi-select the SDF `.DAT` files, then use
+**Preview Bodeplot** before fitting. Use the Freq tab to choose the fitting region.
+
+The shared core sorts the bands, resamples onto a common Hz grid, and averages
+complex responses where bands overlap. Different sampling rates, reversed file
+order, nested ranges, and disjoint ranges are supported. Frequencies without
+measurement coverage are omitted; no extrapolated samples are added. Duplicate
+frequencies within a measurement are averaged, and nonpositive/nonfinite samples
+are discarded. Keep calibration, channel, and units consistent across files;
+RIFF does not align gain or phase offsets between separate measurements.
+
+```matlab
+files = fullfile('measured_TFs', ...
+    ["N3_500Hz_10KHz.DAT","N1_100mHz_100Hz.DAT","N2_50Hz_1500Hz.DAT"]);
+combined = fitTF('combine',files,1); % 1 Hz spacing + band endpoints; no figure
+FIT = fitTF('F',combined.F,'TF',combined.TF);
+
+% Or import, combine, and fit directly:
+FIT = fitTF('SDF_DATASETS',files,'SDF_DATASET_FREQ_RESO',1);
+
+% Other instruments: provide already-decoded frequency/response vectors.
+bands(1) = struct('F',frequencyHz1,'TF',response1);
+bands(2) = struct('F',frequencyHz2,'TF',response2);
+combined = fitTF('combine',bands,0.25);
+```
+
+`combined.Coverage` gives the number of contributing measurements per output
+frequency. `combined.Measurements` retains each normalized input. The existing
+`combineTFs(files,dF,BO,plotToggle)` utility delegates to this core and keeps its
+five-output interface. Its plot defaults to on; the new `fitTF('combine',...)`
+command defaults to no plot. Overlap averaging can change fitted results compared
+with older releases' fragile stitching behavior.
 
 ## Command-line fitting
 
@@ -192,10 +233,9 @@ After fitting, open **Pole/zero editor** to make small final adjustments:
 - Export to a separate workspace variable or MAT file. Original results remain
   unchanged; old covariance and optimizer rankings are omitted from edited fits.
 
-![RIFF pole/zero editor showing live Bode response updates alongside draggable poles and zeros](tutorials/RIFF_pole_zero_editor.png)
+[![Watch Verify and pole/zero refinement in RIFF v4.0.1](tutorials/demos/refinement.jpg)](tutorials/demos/refinement.mp4)
 
-*Pole/zero refinement during development; the screenshot retains the earlier
-panel version label. The released app displays the current release version.*
+*Watch the short demo: select trials, move a pole, adjust gain, and reset.*
 
 The identical editor can be opened without launching the RIFF app:
 
@@ -236,43 +276,30 @@ assertSuccess(results);
 
 Tests cover AAA through vectors/FRD/files, weighting, pole limits, routine
 selection, uncertainty, embedded and standalone plots, trial verification,
-mouse dragging, per-fit resets, exports, and fresh-app startup. Isolated-copy
+mouse dragging, per-fit resets, exports, fresh-app startup, and multi-band
+measurement joining through the app and command line. Isolated-copy
 tests block the former helper files and GUI class to verify that `fitTF.m`
 contains the new core functionality. The optional RF comparison test requires
 RF Toolbox. See [release notes](release_notes.md) for the release validation.
 
-The release build runs the suite before packaging. See [build instructions](https://github.com/Nikhil-Mukund/RIFF/blob/v4.0/packaging/README.md).
+The release build runs the suite before packaging. See [build instructions](https://github.com/Nikhil-Mukund/RIFF/blob/v4.0.1/packaging/README.md).
 
 ## Tutorials
 
-These recordings use earlier releases; layouts and defaults differ from the
-current app, but the measurement and fitting workflows remain useful.
+Short, captioned recordings of **RIFF v4.0.1 on MATLAB R2026b**, captured at the
+app's default window size. All three videos total **0.71 MB** (about 99% smaller
+than the old GIF collection). Click a thumbnail to open its MP4. These scripted
+walkthroughs use actual app controls and plots; computation waits are omitted.
 
-<details>
-<summary>Show tutorial recordings</summary>
+| Fit and inspect | Join frequency bands | Verify and refine |
+|---|---|---|
+| [![Fitting demo](tutorials/demos/fitting.jpg)](tutorials/demos/fitting.mp4) | [![Combining measurements demo](tutorials/demos/measurements.jpg)](tutorials/demos/measurements.mp4) | [![Manual refinement demo](tutorials/demos/refinement.jpg)](tutorials/demos/refinement.mp4) |
+| AAA + tfest, preview, embedded Bode plots | Select and join three bundled SDF bands | Trial parameters, pole dragging, gain, reset |
 
-### Fit a text-file measurement
-![Fit a text measurement](tutorials/damped_transmission_FMINCON.gif)
-
-### Refine with Bayesian Adaptive Direct Search
-![BADS fitting](tutorials/damped_transmission_BADS.gif)
-
-### Account for input/output delay
-![Delay estimation](tutorials/SysID_with_IOdelay.gif)
-
-### Combine SDF measurements and fit a minimum-phase model
-![SDF minimum-phase fitting](tutorials/Keysight_Multiple_SDF_Files_MinPhase.gif)
-
-### Fit a higher-order response
-![Higher-order fitting](tutorials/Higher_Order_Fit.gif)
-
-### Fit workspace variables
-![Workspace fitting](tutorials/RIFF-tutorial-2.gif)
-
-### Filter time series
-![Time-series filtering](tutorials/RIFF-tutorial-4.gif)
-
-</details>
+The fitting/refinement example uses a synthetic response; the joining example
+uses the bundled SDF instrument files. See [demo details and reproduction](tutorials/README.md).
+These compact videos replace the old GIFs in the current source and installer;
+[archived tutorials remain in v3.0](https://github.com/Nikhil-Mukund/RIFF/tree/v3.0/tutorials).
 
 ## Background and acknowledgements
 

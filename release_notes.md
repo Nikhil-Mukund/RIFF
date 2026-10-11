@@ -1,5 +1,24 @@
 # Release notes
 
+## v4.0.1 — Measurement joining and refreshed demos (11 October 2026)
+
+- Fix joining SDF measurements taken over different frequency bands: reversed
+  file order and unequal overlap grids no longer cause dimension errors.
+- Resample onto a shared Hz grid, average complex responses in overlaps,
+  remove duplicate/invalid samples, and omit unmeasured gaps.
+- Keep the merge implementation inside fitTF.m. Add fitTF('combine',...) for
+  SDF files or decoded F/TF structures and route SDF_DATASETS through it.
+  Retain combineTFs as a compatible wrapper; fix its three-argument call.
+- Avoid global warning/font changes and fragile internal-axes indexing.
+- Replace the legacy GIF collection with three compact MP4 walkthroughs of
+  fitting, multi-band SDF joining, and Verify/manual pole-zero refinement.
+  Include captions, thumbnail links, and reproducible capture/encoding scripts.
+- Show v4.0.1 without truncating the app title; correct About compatibility
+  to R2026b+. Keep the default app window size in recordings.
+- Add ten joining regression cases, including a real multi-file preview and
+  an AAA fit through SDF_DATASETS. Test pole dragging at the default window size.
+- Preserve the published v4.0 and v3.0 tags and assets.
+
 ## v4.0 — Stable release for MATLAB R2026b+ (11 October 2026)
 
 - Package version 4.0.0; show RIFF v4.0 on the app panel.

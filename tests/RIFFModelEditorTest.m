@@ -186,7 +186,6 @@ classdef RIFFModelEditorTest < matlab.uitest.TestCase
             testCase.assumeFalse(verLessThan('matlab','24.2'));
             testCase.verifyTrial(0);
             editor = testCase.editor();
-            testCase.App.UIFigure.Position = [50 50 1450 850];
             testCase.App.UIFigure.Visible = 'on';
             testCase.choose(editor.Tab);
             drawnow;

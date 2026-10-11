@@ -1,0 +1,17 @@
+[
+  {
+    "clip": "fitting",
+    "duration_seconds": 23.0,
+    "bytes": 247579
+  },
+  {
+    "clip": "refinement",
+    "duration_seconds": 26.8,
+    "bytes": 250259
+  },
+  {
+    "clip": "measurements",
+    "duration_seconds": 20.0,
+    "bytes": 216802
+  }
+]

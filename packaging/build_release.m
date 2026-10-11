@@ -52,7 +52,7 @@ function packageFile = build_release()
     opts.MaximumMatlabRelease = '';
     opts.UseLicenseBSD = false; % Preserve the repository's GPL-3.0 license.
     opts.AppGalleryFiles = fullfile(source,'RIFF.mlapp');
-    opts.ToolboxImageFile = fullfile(root,'tutorials','RIFF_pole_zero_editor.png');
+    opts.ToolboxImageFile = fullfile(root,'tutorials','demos','refinement.jpg');
     opts.ProductDependencies = ["Control System Toolbox","System Identification Toolbox",...
         "Optimization Toolbox","Global Optimization Toolbox",...
         "Signal Processing Toolbox","Curve Fitting Toolbox"];
