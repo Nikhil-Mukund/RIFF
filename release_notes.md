@@ -1,5 +1,29 @@
 # Release notes
 
+## v4.1.0 — Flexible measurement import and coherence weighting (11 October 2026)
+
+- Add shared fitTF('inspect',...) and fitTF('import',...) APIs and an app
+  Map columns dialog with a table preview, header suggestions, and explicit
+  column/unit selectors. Retain the six legacy text formats.
+- Support complex, real/imaginary, and magnitude/phase data in arbitrary column
+  order, with optional weights and 0–1 coherence. Use weight × coherence by
+  default; allow coherence to be ignored.
+- Add COLUMN_MAP, FORMAT='auto', COHERENCE, and USE_COHERENCE fitting options.
+  Keep all runtime import/UI helpers inside fitTF.m.
+- Pass supplied weights to minimum-phase `fitmagfrd` estimation as well.
+- Preserve supplied weights instead of overwriting them with phase smoothness.
+  Align weights with sorted/DC-filtered rows and resampled frequency grids.
+  Clear previous-fit weights and zero-count settings at each new fit.
+- Validate units, coherence bounds, duplicate frequencies, and effective weights
+  before fitting. Preserve import provenance and original/processed weights.
+- Keep mappings per file for the app session, reread data at fit/preview time,
+  and store column names so reordering cannot silently change their meaning.
+
+- Validation: 22 import/weighting tests and the 61 existing regression tests
+  passed on MATLAB R2026b, including the mapper at the normal app window size.
+- Include the column mapper, coherence weighting, help, and screenshot in the
+  v4.1.0 installer; show v4.1 on the app panel. Preserve older release assets.
+
 ## v4.0.1 — Measurement joining and refreshed demos (11 October 2026)
 
 - Fix joining SDF measurements taken over different frequency bands: reversed

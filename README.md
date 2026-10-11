@@ -1,11 +1,11 @@
-# RIFF v4.0.1: Robust IIR Fitting & Filtering
+# RIFF v4.1.0: Robust IIR Fitting & Filtering
 
 Fit measured transfer functions with robust IIR zero-pole-gain models. RIFF combines
 instrument-data import, frequency weighting, model-order and algorithm selection,
 and fit verification in a guided MATLAB app. The same fitting engine is available
 from the command line through `fitTF.m`.
 
-**v4.0.1 · MATLAB R2026b and newer.** Validated on R2026b.
+**v4.1.0 · MATLAB R2026b and newer.** Validated on R2026b.
 [R2023b users: download the previous v3.0 release.](https://github.com/Nikhil-Mukund/RIFF/releases/tag/v3.0)
 
 [Download the latest stable release](https://github.com/Nikhil-Mukund/RIFF/releases/latest)
@@ -13,9 +13,13 @@ from the command line through `fitTF.m`.
 
 ## What's new
 
-**v4.0.1 fixes joining measurements across frequency bands and replaces the old
-large GIF tutorials with short current-app MP4 demos.** See [tutorials](#tutorials).
-The v4.0 fitting and interactive plotting features remain available:
+**v4.1.0 adds [flexible columns and coherence weighting](#flexible-columns-and-coherence)**
+in both the installer and `fitTF.m`. Map frequency and response columns, select
+units, and include optional weights or coherence. Supplied weights stay aligned
+through preprocessing and are used by minimum-phase fitting too.
+
+This release also includes reliable measurement joining and the lightweight
+[current-app demos](#tutorials) introduced in v4.0.1, plus:
 
 - **SysID AAA and N4SID-initialized `tfest` are enabled by default.** RIFF compares
   both candidates during optimization. AAA now uses System Identification Toolbox;
@@ -68,6 +72,7 @@ and Curve Fitting Toolbox cover the main app and fitting workflows.
 
 Optional dependencies depend on the selected workflow:
 
+- **Robust Control Toolbox:** [fitmagfrd](https://www.mathworks.com/help/robust/ref/frd.fitmagfrd.html), including minimum-phase fitting.
 - **RF Toolbox:** `rationalfit` or explicit `AAA_BACKEND='rf'` comparisons.
 - **BADS:** the Bayesian Adaptive Direct Search optimizer; see
   [BADS](https://github.com/lacerbi/bads). RIFF's existing BADS path attempts to
@@ -87,7 +92,7 @@ RIFF
 Keep the original `src/utils` folder with `fitTF.m`. It contains instrument
 import, configuration, and filtering utilities. All runtime helpers added in
 this release are local or nested functions inside `fitTF.m`; the app supplies
-its UI layout and callbacks. Build instructions are in [packaging](https://github.com/Nikhil-Mukund/RIFF/blob/v4.0.1/packaging/README.md).
+its UI layout and callbacks. Build instructions are in [packaging](https://github.com/Nikhil-Mukund/RIFF/blob/v4.1.0/packaging/README.md).
 
 ## Fitting measurements
 
@@ -132,6 +137,62 @@ The returned `FIT` structure contains the ZPK model, measured and modeled
 responses, GOF, intermediate fits, and optimization settings. Covariance fields
 are populated when requested and supported. Saved fits can include MAT, FIG,
 PNG, and LIGO FOTON-compatible second-order-section filter files.
+
+## Flexible columns and coherence
+
+The column mapper and coherence weighting are included in the v4.1.0 installer
+and source checkout.
+
+In **Input → TextFile**, upload/select a CSV or text measurement and choose
+**Map columns...**. The dialog previews the first rows and suggests columns
+from clear headers. Select frequency, response representation, units, and any
+weight or coherence columns, then **Apply mapping** and **Preview Bodeplot**.
+The response can be complex values, real/imaginary coefficients, or
+magnitude/phase with linear/dB and degree/radian units. Headerless files work
+with explicit selections. The original six fixed-format choices still work.
+
+![Column mapping with a synthetic example and optional coherence](tutorials/column_mapping.png)
+
+Coherence is used directly as a **0–1 fit weight by default**. If a separate
+weight column is present, the effective weight is **weight × coherence**.
+Uncheck **Use coherence as a fit weight** to ignore coherence while retaining
+any explicit weights. Supplied weights take precedence over the phase-smoothness
+estimate; RIFF keeps them aligned when sorting, removing zero-Hz rows, and
+resampling. Coherence is not an estimated variance or uncertainty bound.
+
+Mappings are per file and last for the app session. RIFF rereads the file for
+each preview/fit and saves the mapping and imported values in `FIT.input.Import`.
+It records original and processed frequency/weight vectors in `FIT.weighting`.
+Named columns can move; missing/renamed columns require remapping. Invalid
+samples, duplicate positive frequencies, percentage coherence, and all-zero
+effective weights produce an error before fitting.
+
+The same importer is available without the app:
+
+```matlab
+% With headers such as FrequencyHz, Real, Imag, Weight, Coherence:
+info = fitTF('inspect','measurement.csv'); % Preview and suggested mapping
+D = fitTF('import','measurement.csv');    % Validate/convert without fitting
+FIT = fitTF('FNAME','measurement.csv','FORMAT','auto');
+
+% Or explicitly map headerless or instrument-specific columns:
+map = struct('Frequency',1,'FrequencyUnit','Hz', ...
+    'ResponseType','mag-phase','Magnitude',2,'MagnitudeUnit','dB', ...
+    'Phase',3,'PhaseUnit','deg','Coherence',4,'Weight',0, ...
+    'UseCoherence',true);
+FIT = fitTF('FNAME','measurement.csv','COLUMN_MAP',map);
+
+% Already have vectors? Frequencies are in Hz.
+FIT = fitTF('F',f,'TF',H,'COHERENCE',coherence,'CUSTOM_WEIGHT',weight);
+% Use 'USE_COHERENCE',false to ignore coherence for this fit.
+```
+
+Column selectors accept a name or a one-based index; `0` deselects an optional
+column. Automatic detection requires clear units (for example `FrequencyHz`,
+`FrequencyRad_s`, `Magnitude_dB`, `Phase_deg`). Generic `Frequency`, `Magnitude`,
+and `Phase` headers need explicit units. If you add vector weights to a mapped
+file fit, those vectors must match the **original file rows**, including any
+zero-Hz row. Values are sorted and filtered together inside `fitTF`.
 
 ## Combining measurements across frequency bands
 
@@ -282,7 +343,7 @@ tests block the former helper files and GUI class to verify that `fitTF.m`
 contains the new core functionality. The optional RF comparison test requires
 RF Toolbox. See [release notes](release_notes.md) for the release validation.
 
-The release build runs the suite before packaging. See [build instructions](https://github.com/Nikhil-Mukund/RIFF/blob/v4.0.1/packaging/README.md).
+The release build runs the suite before packaging. See [build instructions](https://github.com/Nikhil-Mukund/RIFF/blob/v4.1.0/packaging/README.md).
 
 ## Tutorials
 

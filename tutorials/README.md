@@ -53,3 +53,8 @@ Only the compact outputs and scripts ship; raw frames stay outside the repositor
 The older specialized walkthroughs (BADS, delay estimation, filtering, and others)
 remain in [v3.0's tutorials](https://github.com/Nikhil-Mukund/RIFF/tree/v3.0/tutorials).
 Their layouts/defaults differ from the current app.
+
+The fitting, joining, and refinement demos were recorded in v4.0.1 and also
+apply to v4.1.0. The new column-mapping dialog is shown in
+[the column-mapping screenshot](column_mapping.png); see the main README for
+coherence weighting and command-line import examples.

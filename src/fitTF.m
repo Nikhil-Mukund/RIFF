@@ -1,6 +1,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% fitTF.m — RIFF v4.0.1 (package version 4.0.1), MATLAB R2026b+
+% fitTF.m — RIFF v4.1 (package version 4.1.0), MATLAB R2026b+
 %
 % DESCRIPTION: Fits a stable transfer function to match the measured
 % response. Accepts inputs in multiple format (see below). Makes use of
@@ -23,6 +23,27 @@
 %       Returns ROUTINE, AAA_BACKEND and ESTIMATE_UNCERTAINITY.
 %       The current release targets MATLAB R2026b. Use the earlier major
 %       RIFF release for MATLAB R2023b.
+%
+%    INSPECT / IMPORT COLUMNS (without fitting or opening graphics):
+%       info = fitTF('inspect',source); % File, table, or numeric matrix
+%       data = fitTF('import',source);  % Infer clear headers and units
+%       data = fitTF('import',source,map); % Explicit column mapping
+%       map fields: Frequency, Real, Imaginary, Response, Magnitude, Phase,
+%       Weight, Coherence (column name or one-based index; 0 means unused).
+%       ResponseType: 'real-imag', 'complex', or 'mag-phase'.
+%       Units: FrequencyUnit ('Hz'/'rad/s'), MagnitudeUnit ('linear'/'dB'),
+%       PhaseUnit ('deg'/'rad'). UseCoherence defaults to true.
+%       Generic/ambiguous headers and unnamed columns need explicit mapping.
+%       Outputs: F (Hz), TF, Weight, Coherence, EffectiveWeight, ColumnMap,
+%       HasWeights, Source, Rows (original rows retained in sorted order),
+%       SourceRowCount, DroppedDCRows. Frequency/response must be finite;
+%       positive frequencies must be distinct. Zero-Hz rows are removed.
+%       EffectiveWeight = Weight .* Coherence (absent factors are ones).
+%       Coherence must be 0–1; weights must be finite and nonnegative.
+%       At least one effective weight must be positive. Set UseCoherence
+%       false to retain coherence without using it as a fit weight.
+%       In the app: Input > TextFile > Map columns. Mappings last for the
+%       app session, are keyed by file, and use column names after Apply.
 %
 %    COMBINE MEASUREMENTS (without running a fit):
 %       data = fitTF('combine',files,dF); % SDF paths; dF in Hz (default .25)
@@ -63,6 +84,10 @@
 %        "FORMAT" :[ Default = 'w a ib'] Options: 'w a ib','w a+ib','w a b',
 %        'f a ib', 'f a+ib', 'f a b' and similarly comma seperated like
 %        'w,a,ib'....
+%        'auto' detects clear headers/units and optional weight/coherence.
+%        "COLUMN_MAP",map overrides detection (also enables mapped import).
+%        For mapped files, extra CUSTOM_WEIGHT/COHERENCE vectors refer to
+%        the original file rows, before sorting and removal of zero Hz.
 %                  where w (or f) is frequency in rad/s (or Hz)
 %                       a & b are the real and imaginary parts of the transfer function
 %
@@ -90,6 +115,12 @@
 %       "SMOOTH_LEVEL"  [ Default = 0           ] Smooth the frequenc response [options: 0-6]
 %       "NUM_TRIALS"    [Default  = 10          ] Number of trials with different initializations
 %       "CUSTOM_WEIGHT" [ Default = NIL         ] Either provide a Weight vector like Coherence info (same size as freq.) or give string arguments such as 'f>320, f<340' (separated by comma)
+%       "COHERENCE"     Numeric vector in [0,1], aligned with input samples.
+%       "USE_COHERENCE" [Default=true] Use supplied coherence for fitting.
+%       Supplied weights multiply with coherence and take precedence over
+%       FIT_WEIGHT_FROM_PHASE_SMOOTHNESS. They follow all row/grid changes.
+%       FIT.weighting stores original/processed frequency-weight pairs;
+%       FIT.input.Import preserves mapped-file provenance and coherence.
 %       "USE_PARALLEL"  [ Default = 0           ] Use Parallel Pool for optimization speedup
 %       "ATTAIN_GOF"    [ Default = 0           ] Set this to 1 to attan a desired GOF (set MAX_POLES to a low value (say 2) with higher NUM_TRIALS )
 %       "DESIRED_GOF"   [ Default = 50          ] Desired goodness of fit (in %), activated when ATTAIN_GOF = 1
@@ -248,6 +279,22 @@ fittingDefaults = struct('ROUTINE',[2 5],'AAA_BACKEND','sysid',...
     'ESTIMATE_UNCERTAINITY',0);
 if nargin >= 1 && (ischar(varargin{1}) || (isstring(varargin{1}) && isscalar(varargin{1})))
     switch lower(char(varargin{1}))
+        case 'inspect'
+            narginchk(2,2);
+            FIT = riff_inspect_measurement(varargin{2});
+            return
+        case 'import'
+            narginchk(2,3);
+            FIT = riff_import_measurement(varargin{2:end});
+            return
+        case 'setup-import'
+            narginchk(2,2);
+            FIT = riff_setup_import(varargin{2});
+            return
+        case 'import-ui'
+            narginchk(2,2);
+            FIT = riff_import_dialog(varargin{2});
+            return
         case 'combine'
             narginchk(2,5);
             FIT = riff_combine_measurements(varargin{2:end});
@@ -301,9 +348,9 @@ if isempty(varargin)
     return
 end
 
-% Declare persistent variables
-clear cohWeight NUM_ZEROS
-persistent cohWeight NUM_ZEROS
+% Per-fit values shared with the nested objective; never inherit another fit.
+cohWeight = [];
+NUM_ZEROS = [];
 
 % Default Parameters
 PLOT_TOGGLE  = 1;       % Enable Bode Plotting
@@ -352,6 +399,11 @@ FIT_WEIGHT_FROM_PHASE_SMOOTHNESS = 0; %
 % Other Default Params
 WtMin = 1;
 WtMax = 4;
+COLUMN_MAP = [];
+COHERENCE = [];
+USE_COHERENCE = true;
+importedMeasurement = [];
+explicitFrequencyWeights = false;
 F_INITIAL_toggle = 0;
 F_FINAL_toggle = 0;
 EXTRA_INFO = [];
@@ -437,6 +489,12 @@ for k= 1:2:length(varargin)
     switch (varargin{k})
         case {'FNAME'}
             FNAME = varargin{k+1};
+        case {'COLUMN_MAP'}
+            COLUMN_MAP = varargin{k+1};
+        case {'COHERENCE'}
+            COHERENCE = varargin{k+1};
+        case {'USE_COHERENCE'}
+            USE_COHERENCE = varargin{k+1};
         case {'FORMAT'}
             FORMAT = varargin{k+1};
         case {'F'}
@@ -558,7 +616,7 @@ for k= 1:2:length(varargin)
         case {'CUSTOM_WEIGHT'}
             disp('Using user specified weighting function...')
             if ~(ischar(varargin{k+1}) || isstring(varargin{k+1}))
-                cohWeight = abs(varargin{k+1});
+                cohWeight = varargin{k+1};
             else
                 VIDX  = k+1;
             end
@@ -664,6 +722,19 @@ end
 % Read file
 if exist('FNAME','var')
     disp('Attempting to read file...')
+    autoMap = ~isempty(COLUMN_MAP) || ...
+        (exist('FORMAT','var') && any(strcmpi(FORMAT,{'auto','Auto / mapped'})));
+    if autoMap
+        if isempty(COLUMN_MAP) && MATLAB_APP_TOGGLE == 1
+            COLUMN_MAP = riff_saved_import_map(APP,FNAME);
+        end
+        if ~USE_COHERENCE
+            if isempty(COLUMN_MAP),COLUMN_MAP=struct();end
+            COLUMN_MAP.UseCoherence=false;
+        end
+        importedMeasurement = riff_import_measurement(FNAME,COLUMN_MAP);
+        f = importedMeasurement.F; TF = importedMeasurement.TF;
+    else
     FILE = readtable(FNAME,'ReadVariableNames',0);
 
 
@@ -703,13 +774,6 @@ if exist('FNAME','var')
             TF = FILE.Var2;
         end
     end
-
-
-    % to prevent errors arising from f(1)==0
-    if f(1)==0
-        fprintf('Zeroth frequency term removed to prevent unexpected behavior.\n')
-        f(1) = [];
-        TF(1)= [];
     end
 end
 
@@ -762,7 +826,7 @@ if exist('TS1','var') && exist('TS2','var')
 
         [TF,f] = tfestimate(TS1,TS2,hanning(NFFT),NFFT/2,NFFT,FS);
         disp('Estimating magnitude squared coherence...')
-        [cohWeight] = mscohere(TS1,TS2,hanning(NFFT),NFFT/2,NFFT,FS);
+        COHERENCE = mscohere(TS1,TS2,hanning(NFFT),NFFT/2,NFFT,FS);
 
     end
 
@@ -797,27 +861,69 @@ if VIEW_INTERMEDIATE_BODEPLOT_TOGGLE==1
     return
 end
 
-% Convert to Single Column
-f = f(:);
-TF = TF(:);
+% Normalize rows together so frequency, response, and supplied weights agree.
+f = f(:); TF = TF(:);
+if numel(f)~=numel(TF) || numel(f)<2 || ~isreal(f) || ...
+        any(~isfinite(f)) || any(f<0)
+    error('RIFF:ImportFrequency','Supply matching response/frequency vectors with at least two nonnegative, finite frequencies.');
+end
+validateattributes(USE_COHERENCE,{'logical','numeric'},{'scalar','binary'});
+if ~isempty(importedMeasurement)
+    % Extra vectors refer to original file rows, even after sorting/removing DC.
+    riff_validate_weights(cohWeight,importedMeasurement.SourceRowCount,'weight');
+    riff_validate_weights(COHERENCE,importedMeasurement.SourceRowCount,'coherence');
+    if ~isempty(cohWeight),cohWeight=cohWeight(importedMeasurement.Rows);end
+    if ~isempty(COHERENCE)
+        if ~isempty(importedMeasurement.Coherence)
+            error('RIFF:ImportCoherence','Select coherence from the file or supply COHERENCE, not both.');
+        end
+        COHERENCE=COHERENCE(importedMeasurement.Rows);
+    end
+else
+    riff_validate_weights(cohWeight,numel(f),'weight');
+    riff_validate_weights(COHERENCE,numel(f),'coherence');
+end
+if ~isempty(cohWeight),cohWeight=double(cohWeight(:));end
+COHERENCE=double(COHERENCE(:));
+coherenceEnabled=logical(USE_COHERENCE);
+if ~isempty(importedMeasurement)
+    if ~isempty(importedMeasurement.Coherence)
+        coherenceEnabled=coherenceEnabled && importedMeasurement.ColumnMap.UseCoherence;
+    end
+    if importedMeasurement.HasWeights
+        if isempty(cohWeight),cohWeight=ones(size(f));end
+        cohWeight=cohWeight.*importedMeasurement.EffectiveWeight;
+    end
+end
+if ~isempty(COHERENCE) && USE_COHERENCE
+    if isempty(cohWeight),cohWeight=ones(size(f));end
+    cohWeight=cohWeight.*COHERENCE;
+end
+rows=find(f>0);[~,orderRows]=sort(f(rows));rows=rows(orderRows);
+if numel(rows)<2 || any(diff(f(rows))<=0)
+    error('RIFF:ImportFrequency','Need at least two distinct positive frequencies; remove or combine duplicates.');
+end
+if numel(rows)<numel(f),fprintf('Zeroth frequency terms removed.\n');end
+f=f(rows);TF=TF(rows);
+if ~isempty(cohWeight),cohWeight=cohWeight(rows);end
+if ~isempty(COHERENCE),COHERENCE=COHERENCE(rows);end
 
-% Create a copy of the original
-TF_orig = TF;
-f_orig  = f;
-
-
-
-
-% Stress on user specific freq. regions
+% Expressions remain supported and multiply any supplied file/coherence weights.
 if exist('VIDX','var')
     fprintf('Modifying weighting, making use of input argument %d ...\n',VIDX);
-    coh_str = varargin{VIDX};
-    coh_cell = strsplit(coh_str,',');
-    cohWeight = ones(size(f));
+    coh_cell = strsplit(varargin{VIDX},',');
+    if isempty(cohWeight),cohWeight=ones(size(f));end
     for ijk = 1:numel(coh_cell)
         cohWeight = cohWeight.*eval(coh_cell{ijk});
     end
+    riff_validate_weights(cohWeight,numel(f),'weight');
+    cohWeight=cohWeight(:);
 end
+if ~isempty(cohWeight)
+    WtMin=5;WtMax=5;explicitFrequencyWeights=true;
+end
+TF_orig=TF;f_orig=f;
+originalWeights=cohWeight;
 
 
 if F_INITIAL_toggle ~= 1
@@ -836,7 +942,11 @@ if INTERP_FRD
         if numel(f) > INTERP_FRD_THRESH
             fprintf('Auto-Decreasing the number of samples to 1000 samples from %d samples\n',numel(f))
             FRD_temp = frd(TF,2*pi*f);
-            freq_rs = logspace(log10(min(f+eps)),log10(max(f)),1000);
+            freq_rs = logspace(log10(min(f)),log10(max(f)),1000);
+            freq_rs([1 end]) = f([1 end]);
+            if ~isempty(cohWeight)
+                cohWeight=interp1(f,cohWeight,freq_rs(:),'linear');
+            end
             FRD_temp_rs = interp(FRD_temp,2*pi*freq_rs);
             TF = squeeze(FRD_temp_rs.ResponseData);
             f = freq_rs(:);
@@ -997,7 +1107,7 @@ if isempty(cohWeight)
     fprintf('Using uniform coherence weights.\n')
 end
 
-if FIT_WEIGHT_FROM_PHASE_SMOOTHNESS==1
+if FIT_WEIGHT_FROM_PHASE_SMOOTHNESS==1 && ~explicitFrequencyWeights
     try
         fprintf('Using coherence weightage based on Phase-SmoothNess\n')
         PHSE = angle(TF);
@@ -1633,6 +1743,11 @@ else
 
     FIT.gof = gof;
 
+    FIT.input.Import = importedMeasurement;
+    FIT.weighting = struct('Frequency',f,'EffectiveWeight',cohWeight,...
+        'OriginalFrequency',f_orig,'OriginalWeight',originalWeights,...
+        'Coherence',COHERENCE,'UseCoherence',coherenceEnabled,...
+        'SuppliedWeights',explicitFrequencyWeights);
     FIT.frequency.measured = f_orig;
     FIT.frequency.truncated = ff_trun;
 
@@ -2015,7 +2130,11 @@ end
             % Fit using fitmagfrd
             %   minimum-phase state-space model using log-Chebyshev magnitude design
             try
-                modelSYS = fitmagfrd(trunSYS0,NUM_POLES);
+                if explicitFrequencyWeights
+                    modelSYS = fitmagfrd(trunSYS0,NUM_POLES,[],frd(Wt,2*pi*ff_trun0));
+                else
+                    modelSYS = fitmagfrd(trunSYS0,NUM_POLES);
+                end
             catch myExp4
                 % set to random stable TF in case to errors
                 disp(getReport(myExp4))
@@ -3352,5 +3471,369 @@ if plotToggle
     [~,labels,extensions] = fileparts(labels);
     labels = labels + extensions;
     legend(chart,[labels,"Combined response"],'Interpreter','none','Location','best');
+end
+end
+
+function info = riff_inspect_measurement(source)
+% Read columns without assigning physical meaning to unnamed numeric data.
+if istable(source)
+    values = source; sourceName = '';
+elseif isnumeric(source) && ismatrix(source)
+    values = array2table(source); sourceName = '';
+elseif (ischar(source) || (isstring(source) && isscalar(source))) && isfile(source)
+    values = readtable(source,'VariableNamingRule','preserve');
+    sourceName = char(source);
+else
+    error('RIFF:ImportSource','Supply a table, numeric matrix, or existing text/CSV file.');
+end
+if height(values)<2 || width(values)<2
+    error('RIFF:ImportSource','The measurement needs at least two rows and two columns.');
+end
+names = string(values.Properties.VariableNames);
+keys = lower(regexprep(names,'[^a-zA-Z0-9]',''));
+map = struct('Frequency',0,'Real',0,'Imaginary',0,'Response',0,...
+    'Magnitude',0,'Phase',0,'Weight',0,'Coherence',0,...
+    'FrequencyUnit','','ResponseType','','MagnitudeUnit','','PhaseUnit','',...
+    'UseCoherence',true);
+aliases = struct('Frequency',{{'f','freq','frequency','fhz','freqhz','frequencyhz','hz','w','omega','frequencyrads','freqrads','wrads','omegarads'}},...
+    'Real',{{'real','re','realpart','tfreal','realresponse'}},...
+    'Imaginary',{{'imag','im','imaginary','imaginarypart','tfimag','imagresponse'}},...
+    'Response',{{'tf','response','transferfunction','complexresponse','h'}},...
+    'Magnitude',{{'mag','magnitude','amplitude','magdb','magnitudedb','amplitudedb','magnitudelinear','maglinear'}},...
+    'Phase',{{'phase','phasedeg','phasedegrees','phaserad','phaseradians'}},...
+    'Weight',{{'weight','weights','fitweight','weighting'}},...
+    'Coherence',{{'coherence','coh','mscoherence','magnitudesquaredcoherence','gamma2','coherencepercent','coherencepct'}});
+roles = fieldnames(aliases); ambiguous = {};
+for n=1:numel(roles)
+    matches = find(ismember(keys,string(aliases.(roles{n}))));
+    if isscalar(matches), map.(roles{n}) = matches;
+    elseif numel(matches)>1, ambiguous{end+1} = roles{n}; end %#ok<AGROW>
+end
+if map.Frequency>0,map.FrequencyUnit=riff_import_units('Frequency',names(map.Frequency));end
+formats = [map.Real>0 && map.Imaginary>0,map.Response>0,map.Magnitude>0 && map.Phase>0];
+if sum(formats)==1
+    types={'real-imag','complex','mag-phase'};map.ResponseType=types{find(formats,1)};
+end
+if map.Magnitude>0,map.MagnitudeUnit=riff_import_units('Magnitude',names(map.Magnitude));end
+if map.Phase>0,map.PhaseUnit=riff_import_units('Phase',names(map.Phase));end
+info=struct('Table',values,'ColumnNames',names,'SuggestedMap',map,...
+    'AmbiguousRoles',{ambiguous},'Source',sourceName);
+end
+
+function data = riff_import_measurement(source,map)
+info=riff_inspect_measurement(source);
+if nargin<2 || isempty(map),map=struct();end
+validateattributes(map,{'struct'},{'scalar'},mfilename,'COLUMN_MAP');
+unknown=setdiff(fieldnames(map),fieldnames(info.SuggestedMap));
+if ~isempty(unknown),error('RIFF:ColumnMap','Unknown mapping field: %s',unknown{1});end
+explicit=fieldnames(map); resolved=info.SuggestedMap;
+for n=1:numel(explicit),resolved.(explicit{n})=map.(explicit{n});end
+% Ambiguous optional columns also need an explicit selection or explicit 0.
+for n=1:numel(info.AmbiguousRoles)
+    role=info.AmbiguousRoles{n};
+    if ~ismember(role,explicit)
+        error('RIFF:ColumnMap','Select columns explicitly: %s. Use fitTF(''inspect'',source) or Map columns.',role);
+    end
+end
+map=resolved; values=info.Table;
+roles={'Frequency','Real','Imaginary','Response','Magnitude','Phase','Weight','Coherence'};
+for n=1:numel(roles)
+    role=roles{n}; selected=map.(role);
+    if ischar(selected) || (isstring(selected) && isscalar(selected))
+        selected=find(info.ColumnNames==string(selected));
+        if ~isscalar(selected),error('RIFF:ColumnMap','Column name for %s was not found.',role);end
+    end
+    validateattributes(selected,{'numeric'},{'real','scalar','integer','>=',0,'<=',width(values)},mfilename,role);
+    map.(role)=selected;
+end
+% A changed column must not inherit the unit of the old suggested column.
+unitRoles={'Frequency','Magnitude','Phase'};
+for n=1:numel(unitRoles)
+    role=unitRoles{n};unit=[role 'Unit'];
+    if ismember(role,explicit) && ~ismember(unit,explicit) && map.(role)>0
+        map.(unit)=riff_import_units(role,info.ColumnNames(map.(role)));
+    end
+end
+validateattributes(map.UseCoherence,{'logical','numeric'},{'scalar','binary'});
+if ~ismember(string(map.FrequencyUnit),["Hz","rad/s"])
+    error('RIFF:ColumnMap','Select FrequencyUnit as Hz or rad/s.');
+end
+f=column('Frequency');
+if ~isreal(f),error('RIFF:ImportFrequency','Frequency must be real.');end
+if strcmp(map.FrequencyUnit,'rad/s'),f=f/(2*pi);end
+used=map.Frequency;
+switch string(map.ResponseType)
+    case 'real-imag'
+        a=column('Real');b=column('Imaginary');
+        if ~isreal(a)||~isreal(b),error('RIFF:ImportResponse','Real/imaginary columns must contain real coefficients.');end
+        response=a+1i*b;used=[used map.Real map.Imaginary];
+    case 'complex'
+        response=column('Response');used=[used map.Response];
+    case 'mag-phase'
+        magnitude=column('Magnitude');phase=column('Phase');
+        if ~isreal(magnitude)||~isreal(phase),error('RIFF:ImportResponse','Magnitude and phase must be real.');end
+        if strcmp(map.MagnitudeUnit,'dB'),magnitude=10.^(magnitude/20);
+        elseif ~strcmp(map.MagnitudeUnit,'linear'),error('RIFF:ColumnMap','Select MagnitudeUnit as linear or dB.');end
+        if any(magnitude<0),error('RIFF:ImportResponse','Linear magnitude must be nonnegative.');end
+        if strcmp(map.PhaseUnit,'deg'),phase=deg2rad(phase);
+        elseif ~strcmp(map.PhaseUnit,'rad'),error('RIFF:ColumnMap','Select PhaseUnit as deg or rad.');end
+        response=magnitude.*exp(1i*phase);used=[used map.Magnitude map.Phase];
+    otherwise
+        error('RIFF:ColumnMap','Select ResponseType: real-imag, complex, or mag-phase.');
+end
+weight=[];coherence=[];
+if map.Weight>0,weight=column('Weight');used=[used map.Weight];end
+if map.Coherence>0
+    key=lower(string(info.ColumnNames(map.Coherence)));
+    if contains(key,'percent') || contains(key,'pct') || contains(key,'%')
+        error('RIFF:ImportCoherence','Coherence must use 0–1 units. Convert percentage columns before importing, or deselect that column.');
+    end
+    coherence=column('Coherence');used=[used map.Coherence];
+end
+if numel(unique(used))~=numel(used)
+    error('RIFF:ColumnMap','Each selected quantity must use a different column.');
+end
+if any(~isfinite(f)) || any(f<0) || any(~isfinite(response))
+    error('RIFF:ImportSamples','Frequency/response must be finite, with nonnegative frequencies. Check columns and units.');
+end
+riff_validate_weights(weight,height(values),'weight');
+riff_validate_weights(coherence,height(values),'coherence');
+rows=find(f>0);[~,order]=sort(f(rows));rows=rows(order);
+if numel(rows)<2 || any(diff(f(rows))<=0)
+    error('RIFF:ImportFrequency','Need at least two distinct positive frequencies; remove or combine duplicates.');
+end
+f=f(rows);response=response(rows);
+if ~isempty(weight),weight=weight(rows);end
+if ~isempty(coherence),coherence=coherence(rows);end
+effective=ones(size(f));
+if ~isempty(weight),effective=effective.*weight;end
+if ~isempty(coherence)&&map.UseCoherence,effective=effective.*coherence;end
+if ~any(effective>0),error('RIFF:ImportWeights','At least one effective weight must be positive.');end
+data=struct('F',f,'TF',response,'Weight',weight,'Coherence',coherence,...
+    'EffectiveWeight',effective,'HasWeights',~isempty(weight)||(~isempty(coherence)&&map.UseCoherence),...
+    'ColumnMap',map,'Source',info.Source,'Rows',rows,'SourceRowCount',height(values),...
+    'DroppedDCRows',find(column('Frequency')==0));
+
+    function out=column(role)
+        index=map.(role);
+        if index==0,error('RIFF:ColumnMap','Select the %s column.',role);end
+        raw=values{:,index};
+        if isnumeric(raw)||islogical(raw),out=double(raw);
+        elseif iscell(raw)||isstring(raw)||ischar(raw),out=str2double(string(raw));
+        else
+            error('RIFF:ImportColumn','The %s column must contain numeric samples.',role);
+        end
+        if ~isvector(out)||numel(out)~=height(values),error('RIFF:ImportColumn','The %s column must contain one numeric value per row.',role);end
+        out=out(:);
+    end
+end
+
+function riff_validate_weights(values,count,kind)
+if isempty(values),return;end
+if ~isnumeric(values)&&~islogical(values)
+    error('RIFF:ImportWeights','%s must be a numeric vector.',kind);
+end
+if ~isvector(values)||numel(values)~=count||~isreal(values)||any(~isfinite(values))||any(values<0)
+    error('RIFF:ImportWeights','%s must have one finite, nonnegative real value per input sample.',kind);
+end
+if strcmp(kind,'coherence')&&any(values>1)
+    error('RIFF:ImportCoherence','Coherence must be in [0,1]; convert percentages before importing.');
+end
+end
+
+function key=riff_import_key(file)
+[ok,details]=fileattrib(file);
+if ~ok,error('RIFF:ImportSource','Select an existing measurement file.');end
+key=details.Name;
+end
+
+function button = riff_setup_import(app)
+% Keep App Designer callbacks thin; build the optional mapping UI in the core.
+button=findall(app.TextFileTab,'Tag','RIFFMapColumns');
+if ~isempty(button),return;end
+app.FORMATDropDown.Items=[app.FORMATDropDown.Items,{'Auto / mapped'}];
+button=uibutton(app.TextFileTab,'Text','Map columns...',...
+    'Tag','RIFFMapColumns','Position',[206 105 140 28],...
+    'Tooltip','Map frequency, response, optional weight and coherence columns.',...
+    'ButtonPushedFcn',@(~,~)riff_import_dialog(app));
+uilabel(app.TextFileTab,'Text',{'Optional weight /','coherence columns'},...
+    'Position',[206 62 145 38],'FontSize',11);
+end
+
+function map = riff_saved_import_map(app,file)
+map=struct();
+if isappdata(app.UIFigure,'RIFFImportMaps')
+    cache=getappdata(app.UIFigure,'RIFFImportMaps');key=riff_import_key(file);
+    if isKey(cache,key),map=cache(key);end
+end
+end
+
+function ui = riff_import_dialog(app)
+% This dialog only stores a mapping. Every fit/preview rereads the source file.
+if isempty(app.ChooseTFListBox.Value)
+    uialert(app.UIFigure,'Upload and select a measurement file first.','Map columns');ui=[];return
+end
+file=fullfile('measured_TFs',app.ChooseTFListBox.Value);
+try
+    key=riff_import_key(file);info=riff_inspect_measurement(file);
+catch exception
+    uialert(app.UIFigure,exception.message,'Cannot read measurement');ui=[];return
+end
+if isappdata(app.UIFigure,'RIFFImportDialog')
+    previous=getappdata(app.UIFigure,'RIFFImportDialog');
+    if isgraphics(previous),delete(previous);end
+end
+fig=uifigure('Name','RIFF — Map measurement columns','Position',[140 100 760 650],...
+    'Tag','RIFFImportDialog','Visible','off');
+setappdata(app.UIFigure,'RIFFImportDialog',fig);
+owner=addlistener(app.UIFigure,'ObjectBeingDestroyed',@(~,~)deleteDialog());
+fig.DeleteFcn=@(~,~)delete(owner);
+layout=uigridlayout(fig,[10 4],'RowHeight',{28,26,130,28,28,28,28,28,'1x',32},...
+    'ColumnWidth',{125,'1x',125,'1x'},'Padding',[15 12 15 12]);
+[~,baseName,extension]=fileparts(key);
+header=uilabel(layout,'Text',[baseName extension],'Tooltip',key,'Interpreter','none','FontWeight','bold');
+header.Layout.Row=1;header.Layout.Column=[1 4];
+help=uilabel(layout,'Text','Check columns and units. Coherence is 0–1; weight × coherence is used for fitting.');
+help.Layout.Row=2;help.Layout.Column=[1 4];
+preview=uitable(layout,'Data',info.Table(1:min(6,height(info.Table)),:),...
+    'ColumnEditable',false,'RowName',[],'Tag','RIFFImportPreview');
+preview.Layout.Row=3;preview.Layout.Column=[1 4];
+items=[{'— select / none —'},cellstr(info.ColumnNames)];
+itemData=0:width(info.Table);
+controls=struct();
+addColumn('Frequency','Frequency',4,1);
+addChoice('FrequencyUnit','Frequency unit',4,3,{'— select —','Hz','rad/s'},{'','Hz','rad/s'});
+addChoice('ResponseType','Response form',5,1,...
+    {'— select —','Real + imaginary','Complex TF','Magnitude + phase'},...
+    {'','real-imag','complex','mag-phase'});
+addColumn('Response','Complex TF',5,3);
+addColumn('Real','Real',6,1);addColumn('Imaginary','Imaginary',6,3);
+addColumn('Magnitude','Magnitude',7,1);
+addChoice('MagnitudeUnit','Magnitude unit',7,3,{'— select —','Linear','dB'},{'','linear','dB'});
+addColumn('Phase','Phase',8,1);
+addChoice('PhaseUnit','Phase unit',8,3,{'— select —','Degrees','Radians'},{'','deg','rad'});
+optional=uigridlayout(layout,[3 4],'RowHeight',{28,24,'1x'},...
+    'ColumnWidth',{125,'1x',125,'1x'},'Padding',[0 4 0 0]);
+optional.Layout.Row=9;optional.Layout.Column=[1 4];
+label=uilabel(optional,'Text','Weight (optional)');label.Layout.Row=1;label.Layout.Column=1;
+controls.Weight=uidropdown(optional,'Items',items,'ItemsData',itemData,'Tag','RIFFImportWeight');
+controls.Weight.Layout.Row=1;controls.Weight.Layout.Column=2;
+label=uilabel(optional,'Text','Coherence (0–1)');label.Layout.Row=1;label.Layout.Column=3;
+controls.Coherence=uidropdown(optional,'Items',items,'ItemsData',itemData,'Tag','RIFFImportCoherence');
+controls.Coherence.Layout.Row=1;controls.Coherence.Layout.Column=4;
+controls.UseCoherence=uicheckbox(optional,'Text','Use coherence as a fit weight','Value',true,...
+    'Tag','RIFFImportUseCoherence');
+controls.UseCoherence.Layout.Row=2;controls.UseCoherence.Layout.Column=[1 4];
+status=uilabel(optional,'Text','','WordWrap','on','Tag','RIFFImportStatus');
+status.Layout.Row=3;status.Layout.Column=[1 4];
+validateButton=uibutton(layout,'Text','Check mapping','ButtonPushedFcn',@(~,~)check(false));
+validateButton.Layout.Row=10;validateButton.Layout.Column=1;
+apply=uibutton(layout,'Text','Apply mapping','Tag','RIFFImportApply',...
+    'ButtonPushedFcn',@(~,~)check(true));apply.Layout.Row=10;apply.Layout.Column=4;
+cancel=uibutton(layout,'Text','Cancel','ButtonPushedFcn',@(~,~)deleteDialog());
+cancel.Layout.Row=10;cancel.Layout.Column=3;
+map=info.SuggestedMap;saved=riff_saved_import_map(app,file);
+fields=fieldnames(saved);
+for n=1:numel(fields),map.(fields{n})=saved.(fields{n});end
+fields=fieldnames(controls);
+for n=1:numel(fields)
+    field=fields{n};value=map.(field);
+    if ismember(field,{'Frequency','Response','Real','Imaginary','Magnitude','Phase','Weight','Coherence'})
+        if ischar(value)||isstring(value)
+            value=find(info.ColumnNames==string(value));
+            if ~isscalar(value),value=0;end
+        end
+    end
+    controls.(field).Value=value;
+    controls.(field).ValueChangedFcn=@(~,~)update();
+end
+ui=struct('Figure',fig,'Controls',controls,'Preview',preview,'Status',status,...
+    'Apply',apply,'Check',validateButton,'Cancel',cancel,'Source',key);
+update();fig.Visible='on';
+
+    function addColumn(field,labelText,row,col)
+        label=uilabel(layout,'Text',labelText);label.Layout.Row=row;label.Layout.Column=col;
+        controls.(field)=uidropdown(layout,'Items',items,'ItemsData',itemData,...
+            'Tag',['RIFFImport' field]);
+        controls.(field).Layout.Row=row;controls.(field).Layout.Column=col+1;
+    end
+    function addChoice(field,labelText,row,col,labels,data)
+        label=uilabel(layout,'Text',labelText);label.Layout.Row=row;label.Layout.Column=col;
+        controls.(field)=uidropdown(layout,'Items',labels,'ItemsData',data,...
+            'Tag',['RIFFImport' field]);
+        controls.(field).Layout.Row=row;controls.(field).Layout.Column=col+1;
+    end
+    function selected=currentMap()
+        selected=struct();names=fieldnames(controls);
+        for j=1:numel(names),selected.(names{j})=controls.(names{j}).Value;end
+        type=selected.ResponseType;
+        if ~strcmp(type,'real-imag'),selected.Real=0;selected.Imaginary=0;end
+        if ~strcmp(type,'complex'),selected.Response=0;end
+        if ~strcmp(type,'mag-phase'),selected.Magnitude=0;selected.Phase=0;end
+    end
+    function update()
+        type=controls.ResponseType.Value;
+        controls.Real.Enable=onoff(strcmp(type,'real-imag'));
+        controls.Imaginary.Enable=controls.Real.Enable;
+        controls.Response.Enable=onoff(strcmp(type,'complex'));
+        controls.Magnitude.Enable=onoff(strcmp(type,'mag-phase'));
+        controls.Phase.Enable=controls.Magnitude.Enable;
+        controls.MagnitudeUnit.Enable=controls.Magnitude.Enable;
+        controls.PhaseUnit.Enable=controls.Magnitude.Enable;
+        check(false);
+    end
+    function check(saveMapping)
+        try
+            fresh=info;
+            if saveMapping,fresh=riff_inspect_measurement(key);end
+            if ~isequal(fresh.ColumnNames,info.ColumnNames)
+                error('RIFF:ColumnMap','The file columns changed. Close and reopen Map columns to review the new layout.');
+            end
+            selected=currentMap();data=riff_import_measurement(fresh.Table,selected);
+            count=sum(data.EffectiveWeight==0);
+            status.Text=sprintf('%d samples | %.6g–%.6g Hz | %d DC rows removed | %d zero weights',...
+                numel(data.F),min(data.F),max(data.F),numel(data.DroppedDCRows),count);
+            status.FontColor=[0.1 0.55 0.25];apply.Enable='on';
+            if saveMapping
+                % Store names so reordered/replaced files cannot silently reuse indices.
+                fields={'Frequency','Response','Real','Imaginary','Magnitude','Phase','Weight','Coherence'};
+                for k=1:numel(fields)
+                    role=fields{k};index=selected.(role);
+                    if index>0,selected.(role)=char(fresh.ColumnNames(index));end
+                end
+                if isappdata(app.UIFigure,'RIFFImportMaps')
+                    cache=getappdata(app.UIFigure,'RIFFImportMaps');
+                else
+                    cache=containers.Map('KeyType','char','ValueType','any');
+                end
+                cache(key)=selected;setappdata(app.UIFigure,'RIFFImportMaps',cache);
+                app.FORMATDropDown.Value='Auto / mapped';deleteDialog();
+            end
+        catch exception
+            status.Text=exception.message;status.FontColor=[0.8 0.25 0.15];apply.Enable='off';
+        end
+    end
+    function deleteDialog()
+        if isgraphics(fig),delete(fig);end
+    end
+    function value=onoff(flag)
+        value='off';if flag,value='on';end
+    end
+end
+
+function unit=riff_import_units(role,name)
+key=lower(regexprep(string(name),'[^a-zA-Z0-9]',''));unit='';
+switch role
+    case 'Frequency'
+        if ismember(key,["w","omega"]) || ...
+                (endsWith(key,'rads') && ~endsWith(key,{'krads','mrads','grads'}))
+            unit='rad/s';
+        elseif key=="f" || (endsWith(key,'hz') && ~endsWith(key,{'khz','mhz','ghz','thz'}))
+            unit='Hz';
+        end
+    case 'Magnitude'
+        if endsWith(key,'db'),unit='dB';elseif endsWith(key,'linear'),unit='linear';end
+    case 'Phase'
+        if endsWith(key,{'deg','degrees'}),unit='deg';elseif endsWith(key,{'rad','radians'}),unit='rad';end
 end
 end

@@ -1,7 +1,8 @@
 # Building a RIFF release
 
-Use MATLAB R2026b or newer with RIFF's required products and RF Toolbox (the test
-suite also compares the optional RF backend). Close any running RIFF windows.
+Use MATLAB R2026b or newer with RIFF's required products, RF Toolbox, and Robust
+Control Toolbox (the tests cover the optional RF backend and minimum-phase
+weighting). Close any running RIFF windows.
 
 1. Update `VERSION` (semantic version), the app panel label, and the app's metadata.
 2. Update the README and release notes. Keep the older R2023b release available.
@@ -24,15 +25,20 @@ folders, local Simulink build caches, `.git`, and test output do not ship.
 
 Before publishing, use a test installation with no existing RIFF package.
 Install the built artifact in a fresh MATLAB `-batch` session using
-the following command:
+a separate settings folder (set `MATLAB_PREFDIR` only for that test process).
+Before installing, direct add-ons to a disposable folder for the session:
 
 ```matlab
+s = settings;
+s.matlab.addons.InstallationFolder.TemporaryValue = tempname;
+assert(isempty(mpmlist)); % Confirm that this is an isolated test session.
 mpminstall(packageFile,Temporary=true, ...
-    Prompt=false,PathPosition="begin");
+    Prompt=false,InstallDependencies=false,PathPosition="begin");
 ```
 
 Verify that `which RIFF` and `which fitTF` resolve to the installed package. Test
-an AAA fit, native preview, Verify, and manual editing from that installation.
+an AAA fit, column mapping, coherence-weighted fitting, native preview, Verify,
+and manual editing from that installation.
 Do not combine a temporary test with version replacement on a working
 installation: replacement can remove the previous package files even though
 the new registration is session-only. Back up an existing installation before
