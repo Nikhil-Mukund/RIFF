@@ -1,4 +1,97 @@
-# Latest
+# Release notes
+
+## v4.0 — Stable release for MATLAB R2026b+ (11 October 2026)
+
+- Package version 4.0.0; show RIFF v4.0 on the app panel.
+- Enable System Identification AAA and N4SID-initialized tfest by default.
+  RF Toolbox is optional; retain the explicit RF backend for comparison.
+- Embed native Bode charts with zoom, pan, data tips, and responsive sizing.
+  Disable the extra figure window by default; retain standalone exports.
+- Keep all new runtime behavior in fitTF.m for both GUI and command-line use.
+- Add optional interactive pole/zero refinement with linked responses,
+  conjugate-aware dragging, constraints, per-trial drafts/reset, and exports.
+- Synchronize Verify plots and model parameters, including intermediate trials.
+- Fix app startup/refresh with empty folders or a single measurement file.
+- Distribute a reproducible .mltbx installer with R2026b as the minimum release,
+  shared command-line paths, Apps-gallery registration, and bundled examples.
+- Refresh the README, add an editor screenshot, document API/migration, and
+  include AAA benchmarks and regression tests. All 51 release regression cases
+  passed on MATLAB R2026b (macOS) before packaging.
+- Preserve the published v3.0 release for R2023b users. Later MATLAB releases
+  are allowed by package metadata; validation was performed on R2026b.
+
+### Development validation history
+
+## 11th Oct 2026 — all new runtime logic in fitTF
+
+- Move Verify, model parameter formatting, and the complete pole/zero editor
+  into fitTF.m; remove the separate runtime helper files and editor class.
+- Route app Verify through fitTF, preserving selected parameters and trial drafts.
+- Expose fitTF('edit',FIT) for command-line editing and the same interactive
+  editor with 'Interactive',true. Share root/gain edits, constraints, reset,
+  scoring, and workspace/MAT export with the embedded app editor.
+- Expose fitTF('verify',FIT,index) and fitTF('parameters',model,label).
+- Retain the original utils dependencies; no new helper files are needed.
+- Validation: all 47 R2026b cases pass (full suite plus focused editor rerun),
+  covering isolated command-line use, standalone editing, app dragging/Verify,
+  AAA, and exports.
+
+## 11th Oct 2026 — command-line core and R2026b focus
+
+- Consolidate AAA estimation and backend selection as local functions in fitTF.m.
+  Keep the app as a GUI frontend and expose shared estimator defaults through
+  fitTF('defaults'), without starting a fit or changing the path/graphics state.
+- Default both interfaces to tfest + SysID AAA. Make command-line uncertainty
+  estimation opt-in so it no longer silently overrides an AAA selection.
+- Target R2026b for the current release. R2023b users should use the earlier
+  major release; RF AAA remains an explicit comparison option in the new core.
+- Exercise the public fitTF API with vectors, FRD objects, files, weights,
+  warm starts, opt-in covariance, and an isolated core without GUI/AAA helpers.
+- Validation: 29 R2026b core and plotting integration tests pass, including
+  standalone plotting from the isolated core and app fitting/Verify/exports.
+
+## 11th Oct 2026 — System Identification AAA
+
+- Use ssest AAA on R2026a+ with RIFF frequency weights and direct estimation.
+  Keep RF rational as an explicit backend and fallback on older releases.
+- Default new app sessions to tfest + AAA on R2026a+; retain legacy defaults
+  on older releases. RF Toolbox is optional for the modern default selection.
+- Respect the requested maximum pole count, including conjugate-pair overshoot.
+  Reject failed AAA estimates instead of accepting a dummy transfer function.
+- Fix nonconsecutive routine selections, preserve routine IDs in saved results
+  and warm starts, and record the AAA backend. Make RF evaluation deterministic.
+- Compare 120 estimates on five bundled sweeps with held-out frequencies.
+  Keep tfest alongside AAA because neither wins on every measurement.
+- Validation: all 34 R2026b regression cases and all 20 applicable R2023b
+  cases pass, including app fitting, plotting, manual editing and exports.
+
+## 11th Oct 2026 — manual model refinement
+
+- Turn off the separate figure window by default in the app.
+- Fix Verify so the model-parameter tab follows the selected trial, including
+  its gain and delay. Index 0 returns to the best fit; retain the fit result
+  instead of replacing the app's stored result with an empty array.
+- Add a Pole/zero editor with a live Bode comparison, draggable roots, numeric
+  root/gain fields, conjugate-pair handling, and optional root constraints.
+- Keep manual edits separately for the best fit and each intermediate trial,
+  with reset for the selected fit and separate workspace/MAT exports.
+- Test real mouse dragging, model updates, trial switching, reset, constraints,
+  original-fit preservation, exports, and the default window setting.
+- Validate 23 R2026b cases across the full suite and focused follow-up checks,
+  including real Fit-to-Verify transitions and removal of stale export metadata.
+  All 11 applicable R2023b cases pass; native editing requires R2024b or newer.
+
+## 11th Oct 2026 — interactive app plots
+
+- Embed live Bode charts in the app on R2024b and newer, with MATLAB chart
+  interactions. Keep the R2023b image display fallback.
+- Use a separate Model parameters tab for scrollable pole/zero, gain, and delay
+  values without covering the response curves.
+- Keep optional separate windows and FIG/PNG exports; release hidden figures
+  created for app exports.
+- Add regression coverage for chart updates, zoom limits, resizing, and switching
+  between Bode plots and the existing time-domain image display.
+- Validation: 13 tests pass on R2026b and all 9 applicable tests pass on R2023b.
 
 ## 11th Oct 2026 — source plotting compatibility fixes
 

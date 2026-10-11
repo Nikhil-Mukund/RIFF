@@ -1,6 +1,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% fitTF.m
+% fitTF.m — RIFF v4.0 (package version 4.0.0), MATLAB R2026b+
 %
 % DESCRIPTION: Fits a stable transfer function to match the measured
 % response. Accepts inputs in multiple format (see below). Makes use of
@@ -17,6 +17,34 @@
 %                     Order of precedence:
 %                       "Params in Quotes" > "Config File Params" > "Default Params"
 %
+%
+%    QUERY SHARED FITTING DEFAULTS:
+%       defaults = fitTF('defaults');  % No fitting, plotting, or app required
+%       Returns ROUTINE, AAA_BACKEND and ESTIMATE_UNCERTAINITY.
+%       The current release targets MATLAB R2026b. Use the earlier major
+%       RIFF release for MATLAB R2023b.
+%
+%    VERIFY AND MANUAL ADJUSTMENT (same core as the app):
+%       fitTF('verify',FIT,index);    % Standalone plot; 0 = best, 1..N = trial
+%       lines = fitTF('parameters',model,label); % label defaults to 'Model'
+%       editor = fitTF('edit',FIT);   % Independent session, no graphics
+%       editor = fitTF('edit',FIT,'Interactive',true); % Live editor window
+%       editor.selectFit(index);     % Separate draft for each fit
+%       editor.moveRoot('pole',1,-0.6+2.5i); % Or 'zero'; preserves conjugates
+%       editor.setGain(3);
+%       model = editor.getModel();   % Current zpk model
+%       state = editor.getState();   % Selection, GOF and modification status
+%       editedFIT = editor.exportFit(); % Original FIT stays unchanged
+%       editor.saveToFile('manual.mat'); % Writes variable FIT to chosen file
+%       name = editor.exportWorkspace(); % New, unique workspace variable
+%       editor.resetFit();           % Restore selected fit only
+%       editor.close();              % Release this session and its window
+%       Options: 'EnforceStability',true; 'EnforceMinimumPhase',false;
+%       'Interactive',false; 'Visible','on' (use 'off' to hide the window).
+%       Logical constraint options apply to subsequent root moves. Change
+%       them later using editor.setConstraints(stable,minimumPhase).
+%       Save editedFIT, not the live editor with its callbacks/UI handles.
+%       GUI callbacks use fitTF('verify',app,FIT) for workspace selection.
 %
 %    [FORMAT 1]
 %        "F"  :frequency in Hz
@@ -59,7 +87,8 @@
 %       "DESIRED_GOF"   [ Default = 50          ] Desired goodness of fit (in %), activated when ATTAIN_GOF = 1
 %  "POLE_UPDATE_TRIAL"  [     Default = 5       ] Increase MAX_POLE every Nth Trial (Used when ATTAIN_GOF = 1 )
 %     "FIT_NOISE_FLOOR" [     Default = 0       ] Fit transfer function noise floor
-%        "ROUTINE"      [ Default =  1:5        ] Fit Routine: 1="rationalfit", 2="tfest", 3="invfreqs, 4="fitmagfrd", 5="AAA-rational"
+%        "ROUTINE"      [ Default = [2 5] ] 1=rationalfit, 2=tfest, 3=invfreqs, 4=fitmagfrd, 5=AAA
+%       "AAA_BACKEND"   [ Default = "sysid" ] "sysid" or explicit "rf"; "auto" aliases "sysid".
 %  "DESIRED_MODEL_ORDER"[ Default = []          ] Request desired model order
 %  "ENFORCE_STABILITY"  [ Default = 1           ] Enforce poles to be on the left half plane
 % "ESTIMATE_UNCERTAINITY" [ Default = 0         ] Determine uncertainity on esimated parameters
@@ -110,7 +139,10 @@
 %
 % (1) Using frequency & complex response
 %
-%      FIT =  fitTF('F',f,'TF');
+%      FIT = fitTF('F',f,'TF',TF); % Default: tfest + SysID AAA
+%      FIT = fitTF('F',f,'TF',TF,'ROUTINE',5); % SysID AAA only
+%      FIT = fitTF('F',f,'TF',TF,'ROUTINE',[2 5],'PLOT_TOGGLE',0);
+%      % Uncertainty/delay requests select tfest; minimum-phase selects fitmagfrd.
 %      FIT =  fitTF('F',f,'TF',TF,'F_INITIAL',305,'F_FINAL',335,'MAX_POLES',18,'FUNC_EVAL',200,'USE_PARALLEL',0,'OPTIMIZER','SURROGATE','SMOOTH_LEVEL',1,'SAVE_TOGGLE',1);
 %
 % (2) Using measurement datafiles
@@ -198,11 +230,45 @@
 %   -Add option to specify the number of freq samples used in FRD interp (1e3)
 %   -This line sometimes throws an error >> VALUE = getcov(modelSYS,'FACTORS','free');
 %   -Check IODelay behavior when ESTIMATE_UNCERTAINITY &DESIRED_MODEL_ORDER flags are ON
-%   -AAA support
-%           - Include AAA (ROUTINE=5) for DESIRED_MODEL_ORDER (currentlty only ROUTINE={1,2} included)
 %   Implement no right half plane zeros in tfest
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function[FIT] =  fitTF(varargin)
+
+% Shared estimator defaults, usable by the GUI without starting a fit or
+% touching graphics, toolboxes, the path, or the caller's numeric format.
+fittingDefaults = struct('ROUTINE',[2 5],'AAA_BACKEND','sysid',...
+    'ESTIMATE_UNCERTAINITY',0);
+if nargin >= 1 && (ischar(varargin{1}) || (isstring(varargin{1}) && isscalar(varargin{1})))
+    switch lower(char(varargin{1}))
+        case 'defaults'
+            narginchk(1,1);
+            FIT = fittingDefaults;
+            return
+        case 'parameters'
+            narginchk(2,3);
+            label = 'Model';
+            if nargin == 3, label = varargin{3}; end
+            FIT = riff_model_parameters(varargin{2},label);
+            return
+        case 'verify'
+            narginchk(2,3);
+            if isstruct(varargin{2}) && isfield(varargin{2},'FRD_Model')
+                index = 0;
+                if nargin == 3, index = varargin{3}; end
+                FIT = fitTF('POST_PROCESS_RESULT_VARIABLE',varargin{2},...
+                    'VIEW_INTERMEDIATE_BODEPLOT_TOGGLE',1,...
+                    'POST_PROCESS_RESULT_INTERMEDIATE_ID',index);
+            else
+                narginchk(3,3);
+                FIT = riff_verify_fit(varargin{2},varargin{3});
+            end
+            return
+        case 'edit'
+            narginchk(2,inf);
+            FIT = create_model_editor(varargin{2},varargin{3:end});
+            return
+    end
+end
 
 tic;
 disp('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
@@ -249,8 +315,9 @@ NUM_TRIALS    = 10;       % Number of trials with different initializations
 ALPHA        = 4;         %  (fcorner/f)^ALPHA: Power law suppression for frequencies outside band of interest
 INTERMEDIATE_PLOT = 0;    % Make intermediate bode plots
 PZTOL          = sqrt(eps);    % Delete zeros & poles at are closer to each other than the PZTOL value
-ROUTINE        = 1:5;     % 1:2, Fit Routine:  1="rationalfit", 2="tfest", 3="invfreqs", 4="fitmagfrd", 5="AAA"
-ESTIMATE_UNCERTAINITY = 1; % Estimate uncertainity associated with the ZPK parameters.
+ROUTINE = fittingDefaults.ROUTINE; % tfest and System Identification AAA
+AAA_BACKEND = fittingDefaults.AAA_BACKEND;
+ESTIMATE_UNCERTAINITY = fittingDefaults.ESTIMATE_UNCERTAINITY; % Opt-in covariance estimation
 INCLUDE_IODELAY = 0;       % Account for possible Input-Output Delay during SysID
 DISPLAY_ZPK = 1 ;          % Display ZPK parameters while plotting.
 ATTAIN_GOF  = 0 ;         % Set this to 1 to attan a desired GOF (set MAX_POLES to a low value with higher NUM_TRIALS )
@@ -431,8 +498,10 @@ for k= 1:2:length(varargin)
             PZTOL = varargin{k+1};
         case {'BODEOPTIONS'}
             BO = varargin{k+1};
-        case {lower('ROUTINE')}
+        case {'ROUTINE','routine'}
             ROUTINE = varargin{k+1};
+        case {'AAA_BACKEND'}
+            AAA_BACKEND = varargin{k+1};
         case {'ALPHA'}
             ALPHA = varargin{k+1};
         case {'RESO_DAMP_FAC'}
@@ -487,7 +556,6 @@ for k= 1:2:length(varargin)
             EXTRA_INFO = varargin{k+1};
         case {'DESIRED_MODEL_ORDER'}
             DESIRED_MODEL_ORDER = double(varargin{k+1});
-            ROUTINE  = [1,2,3,5]; %Default 1:2
         case {'INCLUDE_IODELAY'}
             INCLUDE_IODELAY = varargin{k+1};
         case {'POST_PROCESS_RESULT_VARIABLE'}
@@ -525,6 +593,7 @@ if MATLAB_APP_TOGGLE == 1
                 end
                 % Use CheckBoxTree to select fit routines    
             elseif contains(class(APP.(FIELDS{ijk})),'CheckBoxTree')
+                    ROUTINE = [];
                     if numel(APP.(FIELDS{ijk}).CheckedNodes) > 0
                         selected_routines_str = string({APP.(FIELDS{ijk}).CheckedNodes(:).Text});
                         selected_routines_str = erase(selected_routines_str,"FITTING_ROUTINES");
@@ -554,6 +623,9 @@ end
 
 
 FIG_HANDLE_VISIBILITY_ORIG = FIG_HANDLE_VISIBILITY;
+if MATLAB_APP_TOGGLE == 1 && ~VIEW_INTERMEDIATE_BODEPLOT_TOGGLE
+    clear_model_editor(APP);
+end
 
 % Check if Surrogate Optimizer exists (require R2018b & above)
 % Else switch to patternsearch or fmincon
@@ -685,26 +757,30 @@ if exist('TS1','var') && exist('TS2','var')
 end
 
 if VIEW_INTERMEDIATE_BODEPLOT_TOGGLE==1
-    my_FIT_RESULT = POST_PROCESS_RESULT_VARIABLE;
-    current_val_DISPLAY_ZPK = DISPLAY_ZPK;
+    FIT = POST_PROCESS_RESULT_VARIABLE;
+    count = 0;
+    if isfield(FIT,'intermediate'), count = numel(FIT.intermediate); end
+    index = POST_PROCESS_RESULT_INTERMEDIATE_ID;
+    validateattributes(index,{'numeric'},{'scalar','integer','>=',0,'<=',count});
     DISPLAY_ZPK = 1;
-    FIT = my_FIT_RESULT;
-    current_val_FIG_HANDLE_VISIBILITY=FIG_HANDLE_VISIBILITY;
-    FIG_HANDLE_VISIBILITY = 0;
-    BO = my_FIT_RESULT.options.BodeOptions;
-    BO.XLim = [ my_FIT_RESULT.frequency.measured(1), my_FIT_RESULT.frequency.measured(end)];
-    BO.Title.String = sprintf('Bode Plot --> Trial No: %d of %d \n Goodness Of Fit (GOF): %0.2f %s (Best GOF: %0.2f %s)',POST_PROCESS_RESULT_INTERMEDIATE_ID,numel(my_FIT_RESULT.intermediate),my_FIT_RESULT.intermediate(POST_PROCESS_RESULT_INTERMEDIATE_ID).GOF,'%',my_FIT_RESULT.gof,'%');
-    BO.Title.FontSize = 15;
-    make_plot(...
-        BO,...
-        my_FIT_RESULT.FRD_Model.measured_original,...
-        my_FIT_RESULT.FRD_Model.measured_smoothed,...
-        my_FIT_RESULT.FRD_Model.truncated,...
-        my_FIT_RESULT.intermediate(POST_PROCESS_RESULT_INTERMEDIATE_ID).FRD_Model.modeled,...
-        my_FIT_RESULT.FRD_Model.modeled);
-    FIT=[];
-    DISPLAY_ZPK = current_val_DISPLAY_ZPK;
-    FIG_HANDLE_VISIBILITY = current_val_FIG_HANDLE_VISIBILITY;
+    if MATLAB_APP_TOGGLE == 1, FIG_HANDLE_VISIBILITY = 0; end
+    BO = FIT.options.BodeOptions;
+    displayed = chgFreqUnit(FIT.FRD_Model.measured_original,BO.FreqUnits);
+    BO.XLim = [min(displayed.Frequency),max(displayed.Frequency)];
+    selectedModel = FIT.FRD_Model.modeled;
+    selectedMeasurement = FIT.FRD_Model.truncated;
+    if index > 0
+        selectedModel = FIT.intermediate(index).FRD_Model.modeled;
+        if isfield(FIT.intermediate(index).FRD_Model,'truncated_measurement')
+            selectedMeasurement = FIT.intermediate(index).FRD_Model.truncated_measurement;
+        end
+        BO.Title.String = sprintf('Trial %d of %d | GOF %.2f%% | Best GOF %.2f%%',...
+            index,count,FIT.intermediate(index).GOF,FIT.gof);
+    else
+        BO.Title.String = sprintf('Best fit | GOF %.2f%%',FIT.gof);
+    end
+    make_plot(BO,FIT.FRD_Model.measured_original,FIT.FRD_Model.measured_smoothed,...
+        selectedMeasurement,selectedModel,FIT.FRD_Model.modeled);
     return
 end
 
@@ -783,19 +859,25 @@ while F_INITIAL + FREQ_WIN_LOW >= F_FINAL - FREQ_WIN_UP
     FREQ_WIN_UP = FREQ_WIN_UP/2;
 end
 
+if isempty(ROUTINE)
+    if PREVIEW_BODEPLOT_TOGGLE
+        ROUTINE = fittingDefaults.ROUTINE;
+    else
+        error('RIFF:NoFitRoutine','Select at least one fitting routine.');
+    end
+end
+
 % Currently only tfestimate can estimate uncertainity
 if ESTIMATE_UNCERTAINITY == 1
-    fprintf('Uncertainity estimation requested. FIT_ROUTINE set to tfestimate. \n')
-    ROUTINE(1)  = 2;
-    ROUTINE(end) = 2;
+    fprintf('Uncertainty estimation requested. FIT_ROUTINE set to tfest. \n')
+    ROUTINE = 2;
 end
 
 
 % Currently only tfestimate include un-stable models
 if ENFORCE_STABILITY ~= 1
-    fprintf('ENFORCE_STABILITY set to 0. FIT_ROUTINE set to tfestimate. \n')
-    ROUTINE(1)  = 2;
-    ROUTINE(end) = 2;
+    fprintf('ENFORCE_STABILITY set to 0. FIT_ROUTINE set to tfest. \n')
+    ROUTINE = 2;
 end
 
 % Added by NM on 28th April 2022
@@ -806,13 +888,21 @@ if ENFORCE_MINIMUM_PHASE==1
 end
 % Added by NM on 28th April 2022
 if INCLUDE_IODELAY == 1
-    fprintf('INCLUDE_IODELAY set to 1. FIT_ROUTINE set to tfestimate. \n')
+    fprintf('INCLUDE_IODELAY set to 1. FIT_ROUTINE set to tfest. \n')
     ROUTINE = 2;
 end
 
 
-lb = [MIN_POLES,F_INITIAL-FREQ_WIN_LOW,F_FINAL-FREQ_WIN_UP, ROUTINE(1),WtMin];
-ub = [MAX_POLES,F_INITIAL+FREQ_WIN_LOW,F_FINAL+FREQ_WIN_UP, ROUTINE(end),WtMax];
+% Optimize an index into the selected routines, not the numerical ID range.
+% For example [2 5] must never run unchecked routines 3 or 4.
+validateattributes(ROUTINE,{'numeric'},{'vector','nonempty','integer','>=',1,'<=',5});
+ROUTINE = unique(ROUTINE(:)','stable');
+if any(ROUTINE == 5) && ~PREVIEW_BODEPLOT_TOGGLE && ~VIEW_INTERMEDIATE_BODEPLOT_TOGGLE
+    AAA_BACKEND = riff_aaa_backend(AAA_BACKEND);
+    fprintf('AAA backend: %s\n',AAA_BACKEND);
+end
+lb = [MIN_POLES,F_INITIAL-FREQ_WIN_LOW,F_FINAL-FREQ_WIN_UP, 1,WtMin];
+ub = [MAX_POLES,F_INITIAL+FREQ_WIN_LOW,F_FINAL+FREQ_WIN_UP, numel(ROUTINE),WtMax];
 
 
 % Estimate Noise Floor
@@ -913,6 +1003,10 @@ if PREVIEW_BODEPLOT_TOGGLE==1
 else
 
 
+    if WtMin == 5 && ~any(cohWeight > 0)
+        error('RIFF:AAAWeights','At least one custom frequency weight must be positive.');
+    end
+
     % Define cost function
     rf = @(Params)fitTF_costFunc(f,TF,Params); % objective
 
@@ -951,6 +1045,12 @@ else
             else
                 disp('using user provided GUESS value as starting point...')
                 x0 = GUESS;
+                % Public GUESS/results use the algorithm ID for compatibility.
+                routineIndex = find(ROUTINE == round(GUESS(4)),1);
+                if isempty(routineIndex)
+                    error('RIFF:GuessRoutine','GUESS specifies an unchecked fitting routine.');
+                end
+                x0(4) = routineIndex;
             end
         end
 
@@ -1438,6 +1538,12 @@ else
         else
             fprintf('Trial %d has poles with +ve real part -> UNSTABLE -> skipping...  \n',trial)
         end
+        if exist('FIT','var') && isfield(FIT,'intermediate') && numel(FIT.intermediate) >= trial
+            FIT.intermediate(trial).FIT_ROUTINE = Routine_Names(ROUTINE(round(xsur(4))));
+            if ROUTINE(round(xsur(4))) == 5
+                FIT.intermediate(trial).AAA_BACKEND = AAA_BACKEND;
+            end
+        end
         fprintf(' \n')
 
         % increase MAX_POLES if gof_trial is not increasing
@@ -1558,19 +1664,28 @@ else
     FIT.options.FREQ_WIN_UP = FREQ_WIN_UP;
     FIT.options.FUNC_EVAL = FUNC_EVAL;
     FIT.options.USE_PARALLEL = USE_PARALLEL;
+    FIT.options.ESTIMATE_UNCERTAINITY = ESTIMATE_UNCERTAINITY;
     FIT.options.SMOOTH_LEVEL = SMOOTH_LEVEL;
     FIT.options.Optimization.OPTIMIZER = OPTIMIZER;
     FIT.options.Optimization.options = opts;
     FIT.options.Optimization.lb = lb;
     FIT.options.Optimization.ub = ub;
+    FIT.options.Optimization.SELECTED_ROUTINES = ROUTINE;
+    FIT.options.Optimization.lb(4) = min(ROUTINE);
+    FIT.options.Optimization.ub(4) = max(ROUTINE);
     FIT.options.Optimization.startingPoints = x0_best;
+    FIT.options.Optimization.startingPoints(4) = ROUTINE(round(x0_best(4)));
     FIT.options.Optimization.NUM_TRIALS  = NUM_TRIALS;
     FIT.options.Optimization.BEST_TRIAL  = best_trial;
     FIT.options.Optimization.results    = xsur_best;
+    FIT.options.Optimization.results(4) = ROUTINE(round(xsur_best(4)));
     FIT.options.Optimization.Num_Poles  = round(xsur_best(1));
     FIT.options.Optimization.F_Start    = xsur_best(2);
     FIT.options.Optimization.F_Stop     = xsur_best(3);
-    FIT.options.Optimization.FINAL_FIT_ROUTINE = Routine_Names(round(xsur_best(4)));
+    FIT.options.Optimization.FINAL_FIT_ROUTINE = Routine_Names(ROUTINE(round(xsur_best(4))));
+    if ROUTINE(round(xsur_best(4))) == 5
+        FIT.options.Optimization.AAA_BACKEND = AAA_BACKEND;
+    end
     FIT.options.Optimization.FINAL_WEIGHTING_FILTER = WtFilter(round(xsur_best(5)));
     FIT.dateTime = fID;
     FIT.userName = string(fullname);
@@ -1643,6 +1758,9 @@ else
         end
 
         if SAVE_TOGGLE
+            if MATLAB_APP_TOGGLE == 1 && ~verLessThan('matlab','24.2') && ~FIG_HANDLE_VISIBILITY
+                exportCleanup = onCleanup(@() delete(FIG_GCF));
+            end
 
             disp('Saving results...')
 
@@ -1768,7 +1886,7 @@ end
         NUM_POLES = round(Params(1));
         F_INITIAL0 = Params(2);
         F_FINAL0   = Params(3);
-        FIT_ROUTINE = round(Params(4));
+        FIT_ROUTINE = ROUTINE(max(1,min(numel(ROUTINE),round(Params(4)))));
         WEIGHT      = round(Params(5));
 
         % Select region to fit
@@ -1894,20 +2012,17 @@ end
 
         elseif FIT_ROUTINE == 5
 
-            % Fit using Nick Trefethen's AAA algorithm
-            % toggle btw two metrics
             try
-            if randi(2,1)==1
-                fit  =  rational(ff_trun0,TF_trun0,"MaxPoles",NUM_POLES,"ErrorMetric","Relative","QLimit",1e7);
-            else
-                fit  =  rational(ff_trun0,TF_trun0,"MaxPoles",NUM_POLES,"ErrorMetric","default","QLimit",1e7);
-            end
-            [b,a] = residue (squeeze(fit.Residues),squeeze(fit.Poles),squeeze(fit.DirectTerm));
-            modelSYS = tf(real (b),a);
-         catch myExp5
-                % set to random stable TF in case to errors
-                disp(getReport(myExp5))
-                modelSYS =  tf([1 1],[1 1 1]);
+                modelSYS = riff_fit_aaa(ff_trun0,TF_trun0,NUM_POLES,Wt,...
+                    ENFORCE_STABILITY,AAA_BACKEND);
+                % RIFF stores pole/zero models; idss has no IODelay property.
+                modelSYS = zpk(modelSYS);
+            catch fitError
+                % Penalize failed optimizer probes; never accept a dummy model.
+                % If the chosen final candidate failed, expose the real error.
+                if nargout > 1, rethrow(fitError); end
+                residual = Inf;
+                return
             end
 
         end
@@ -2141,79 +2256,71 @@ end
             labels{end+1} = 'Parameter uncertainty samples';
             lineSpecs{end+1} = 'c:';
         end
-        [FIG_GCF,BD] = create_bodeplot(BO,systems,labels,lineSpecs,FIG_HANDLE_VISIBILITY);
-        if hasUncertainty && ~orderReducedToggle && isa(BD,'controllib.chart.BodePlot')
-            BD.Responses(end).LineWidth = 0.5;
-            BD.Responses(end).Color = [110,163,163]/255;
-        end
+        % Native charts are supported inside App Designer from R2024b.
+        % Make a separate figure only for the requested window or final export.
+        embedded = MATLAB_APP_TOGGLE == 1 && ~verLessThan('matlab','24.2');
+        FIG_GCF = [];
+        charts = {};
+        Str = strings(1,0);
+        extraParameters = strings(0,1);
 
+        selectedIndex = 0;
+        selectedLabel = 'Best fit';
+        if VIEW_INTERMEDIATE_BODEPLOT_TOGGLE && POST_PROCESS_RESULT_INTERMEDIATE_ID > 0
+            selectedIndex = POST_PROCESS_RESULT_INTERMEDIATE_ID;
+            selectedLabel = sprintf('Trial %d',selectedIndex);
+        elseif ~isfield(FIT,'ZPK') && isfield(FIT,'intermediate')
+            selectedLabel = sprintf('Trial %d',numel(FIT.intermediate));
+        end
         if DISPLAY_ZPK == 1
-            % Create String for showing ZPK parameters
-            if isfield(FIT,'ZPK')
-                ZPK = FIT.ZPK;
-                finalIODelay = FIT.IODelay;
-                if isempty(ZPK.z)
-                    Str = ["Full Order" "P" string(ZPK.p)' "K" num2str(ZPK.k,'%g') "Delay" num2str(finalIODelay,'%g')];
-                else
-                    Str = ["Full Order" "Z" string(ZPK.z)' "P" string(ZPK.p)' "K" num2str(ZPK.k,'%g') "Delay" num2str(finalIODelay,'%g')];
-                end
-
-                % Add Reduced Order
-                if isfield(FIT,'ZPK_Reduced_Order')
-                    ZPK = FIT.ZPK_Reduced_Order;
-                    finalIODelay = FIT.IODelay;
-                    if isempty(ZPK.z)
-                        Str = [Str " " " " "Reduced Order" "P" string(ZPK.p)' "K" num2str(ZPK.k,'%g') "Delay" num2str(finalIODelay,'%g')];
-                    else
-                        Str = [Str " " " " "Reduced Order" "Z" string(ZPK.z)' "P" string(ZPK.p)' "K" num2str(ZPK.k,'%g') "Delay" num2str(finalIODelay,'%g')];
-                    end
-                end
-
-            elseif isfield(FIT,'intermediate')
-                ZPK = FIT.intermediate(end).ZPK;
-                intmIODelay = FIT.intermediate(end).IODelay;
-                %ZPK.z = round(ZPK.z,4);
-                %ZPK.p = round(ZPK.p,4);
-                %ZPK.k = round(ZPK.k,4);
-
-                if isempty(ZPK.z)
-                    Str = ["Full Order" "P" string(ZPK.p)' "K" num2str(ZPK.k,'%g') "Delay" num2str(intmIODelay,'%g')];
-                else
-                    Str = ["Full Order" "Z" string(ZPK.z)' "P" string(ZPK.p)' "K" num2str(ZPK.k,'%g') "Delay" num2str(intmIODelay,'%g')];
-                end
-            else
-                fprintf('Plotting error. Try setting "DISPLAY_ZPK" to 0. Existing. \n')
-                return;
+            Str = riff_model_parameters(modelSYS,selectedLabel);
+            if orderReducedToggle
+                extraParameters = [""; riff_model_parameters(modelSYS_best_reducedOrder,'Reduced order')];
+                Str = [Str; extraParameters];
             end
-
-            %FUTURE_ADDITION (INCLUDE UNCERTAINITY IN PLOTS)
-            %             if ESTIMATE_UNCERTAINITY == 1
-            %                 un = squeeze(real((FIT.ZPK.zcov).^0.5)); un = un(1,:); un = round(un,3);
-            %                 zun = un;
-            %                 un = squeeze(real((FIT.ZPK.pcov.^0.5))); un = un(1,:); un = round(un,3);
-            %                 pun = un;
-            %             end
-
-
-            % Add ZPK text annotation to plot
-            txtAnno = annotation(FIG_GCF,'textbox');
-            txtAnno.String = Str;
-            txtAnno.FontSize = 8;
-            txtAnno.FontWeight = 'normal';
-            txtAnno.LineStyle = 'None';
-            txtAnno.Position = [0.84 0.65 0.15 0.25];
-            %txtAnno.BackgroundColor = [1 1 1]*0.9;
-            drawnow;
         end
 
-        %Code to display image preview inside the App
-        if MATLAB_APP_TOGGLE == 1
+        if embedded
+            plotParent = app_bode_container(APP,Str);
+            [~,BD] = create_bodeplot(BO,systems,labels,lineSpecs,0,plotParent);
+            charts{end+1} = BD;
+            if isfield(FIT,'ZPK')
+                editor = getappdata(APP.UIFigure,'RIFFModelEditor');
+                if isempty(editor) || ~isstruct(editor) || ~editor.isValid() || ~editor.matchesFit(FIT)
+                    clear_model_editor(APP);
+                    editor = create_model_editor(FIT,'App',APP,'Tabs',plotParent.Parent);
+                    setappdata(APP.UIFigure,'RIFFModelEditor',editor);
+                end
+                parameterText = findobj(plotParent.Parent,'Tag','RIFFParameterText');
+                editor.bind(BD,selectedIndex,parameterText,extraParameters);
+            end
+        end
+        if ~embedded || FIG_HANDLE_VISIBILITY || (nargout > 0 && SAVE_TOGGLE)
+            [FIG_GCF,BD] = create_bodeplot(BO,systems,labels,lineSpecs,FIG_HANDLE_VISIBILITY);
+            charts{end+1} = BD;
+            if ~isempty(Str)
+                txtAnno = annotation(FIG_GCF,'textbox');
+                txtAnno.String = Str;
+                txtAnno.FontSize = 8;
+                txtAnno.FontWeight = 'normal';
+                txtAnno.LineStyle = 'None';
+                txtAnno.Position = [0.84 0.65 0.15 0.25];
+            end
+        end
+        for chartIndex = 1:numel(charts)
+            BD = charts{chartIndex};
+            if hasUncertainty && ~orderReducedToggle && isa(BD,'controllib.chart.BodePlot')
+                BD.Responses(numel(systems)).LineWidth = 0.5;
+                BD.Responses(numel(systems)).Color = [110,163,163]/255;
+            end
+        end
+        if MATLAB_APP_TOGGLE == 1 && ~embedded
             display_app_plot(FIG_GCF,APP);
-            % retain the final result figure
             if ~isfield(FIT,'ZPK')
                 delete(FIG_GCF);
             end
         end
+        drawnow;
 
     end
 
@@ -2296,9 +2403,20 @@ end
 
 
     function preview_bodeplot(BO,SYS_orig,SYS_processed,APP)
-        [FIG_GCF,BD] = create_bodeplot(BO,{SYS_orig,SYS_processed},...
-            {'Measurement ( original )','Measurement ( processed )'},...
-            {'-','-'},FIG_HANDLE_VISIBILITY);
+        embedded = ~verLessThan('matlab','24.2');
+        systems = {SYS_orig,SYS_processed};
+        labels = {'Measurement ( original )','Measurement ( processed )'};
+        lineSpecs = {'-','-'};
+        charts = {};
+        if embedded
+            plotParent = app_bode_container(APP,strings(1,0));
+            [~,BD] = create_bodeplot(BO,systems,labels,lineSpecs,0,plotParent);
+            charts{end+1} = BD;
+        end
+        if ~embedded || FIG_HANDLE_VISIBILITY
+            [FIG_GCF,BD] = create_bodeplot(BO,systems,labels,lineSpecs,FIG_HANDLE_VISIBILITY);
+            charts{end+1} = BD;
+        end
 
         % App frequency fields are in Hz; FRD frequency data are in rad/s.
         % Convert both to the displayed units before applying plot limits.
@@ -2309,23 +2427,40 @@ end
         xLimits = [max(min(displayedSYS.Frequency),min(requestedRange)),...
             min(max(displayedSYS.Frequency),max(requestedRange))];
         if all(isfinite(xLimits)) && xLimits(1) > 0 && xLimits(1) < xLimits(2)
-            setoptions(BD,'XLim',xLimits);
+            for chartIndex = 1:numel(charts)
+                setoptions(charts{chartIndex},'XLim',xLimits);
+            end
         end
-        display_app_plot(FIG_GCF,APP);
-        if ~FIG_HANDLE_VISIBILITY
-            delete(FIG_GCF);
+        if ~embedded
+            display_app_plot(FIG_GCF,APP);
+            if ~FIG_HANDLE_VISIBILITY
+                delete(FIG_GCF);
+            end
         end
+        drawnow;
     end
 
-    function [fig,BD] = create_bodeplot(BO,systems,labels,lineSpecs,visibility)
+    function [fig,BD] = create_bodeplot(BO,systems,labels,lineSpecs,visibility,plotParent)
         % LineSpec and BodeOptions work with both the legacy response plots
         % (R2023b) and the chart objects introduced in R2024b. Never index
         % hidden graphics children or move chart labels through gca.
-        fig = figure(FIG_HANDLE,'Visible',visibility);
-        BO.Title.FontSize = 15;
-        BO.XLabel.FontSize = 15;
-        BO.YLabel.FontSize = 15;
-        BO.TickLabel.FontSize = 15;
+        fig = [];
+        embedded = nargin == 6;
+        fontSize = 15;
+        if embedded
+            fontSize = 12;
+        else
+            fig = figure(FIG_HANDLE,'Visible',visibility);
+            if ~verLessThan('matlab','24.2')
+                plotParent = fig;
+            else
+                plotParent = axes('Parent',fig);
+            end
+        end
+        BO.Title.FontSize = fontSize;
+        BO.XLabel.FontSize = fontSize;
+        BO.YLabel.FontSize = fontSize;
+        BO.TickLabel.FontSize = fontSize;
         args = {};
         for systemIndex = 1:numel(systems)
             args{end+1} = systems{systemIndex};
@@ -2335,7 +2470,7 @@ end
                 args{end+1} = lineSpecs{systemIndex};
             end
         end
-        BD = bodeplot(args{:},BO);
+        BD = bodeplot(plotParent,args{:},BO);
 
         magnitude = abs(systems{1}.ResponseData(:));
         magnitude = magnitude(isfinite(magnitude));
@@ -2373,8 +2508,12 @@ end
             fig.Visible = visibility;
             set(findall(fig,'Type','line'),'LineWidth',2);
         end
-        lgnd = legend(labels,'Location','best');
-        lgnd.FontSize = 12;
+        if isa(BD,'controllib.chart.BodePlot')
+            lgnd = legend(BD,labels,'Location','best');
+        else
+            lgnd = legend(labels,'Location','best');
+        end
+        lgnd.FontSize = min(fontSize,12);
         % R2026a+ exposes legend options on the chart itself.
         if ~isprop(BD,'Legend')
             lgnd.Box = 'off';
@@ -2400,7 +2539,696 @@ end
 
 end
 
+function plotTab = app_bode_container(app,parameters)
+% Add a native chart container at runtime to keep the .mlapp editable in
+% R2023b. The existing axes remain available for time-domain filtering.
+    panel = findobj(app.RightPanel,'Type','uipanel','Tag','RIFFInteractivePlot');
+    if isempty(panel)
+        % Let App Designer's layout engine size the native plot and header.
+        % Reparenting the existing components preserves their app callbacks.
+        layout = uigridlayout(app.RightPanel,[2 1],...
+            'RowHeight',{70,'1x'},'Padding',[12 12 12 12]);
+        header = uigridlayout(layout,[3 2],'Padding',[0 0 0 0],...
+            'RowHeight',{'1x',20,'1x'},'ColumnWidth',{'1x',20});
+        header.Layout.Row = 1;
+        app.RIFTLabel.Parent = header;
+        app.RIFTLabel.Layout.Row = [1 3];
+        app.RIFTLabel.Layout.Column = 1;
+        app.RIFTLabel.HorizontalAlignment = 'center';
+        app.Lamp.Parent = header;
+        app.Lamp.Layout.Row = 2;
+        app.Lamp.Layout.Column = 2;
+        % The native panel overlays the image axes in the same grid cell.
+        app.UIAxes.Parent = layout;
+        app.UIAxes.Layout.Row = 2;
+        panel = uipanel(layout,'BorderType','none','Tag','RIFFInteractivePlot');
+        panel.Layout.Row = 2;
+        plotLayout = uigridlayout(panel,[1 1],'Padding',[0 0 0 0]);
+        tabs = uitabgroup(plotLayout);
+        plotTab = uitab(tabs,'Title','Bode plot','Tag','RIFFBodeTab');
+        % Restore the image axes when using the separate time-domain workflow.
+        button = app.FilterTimeSeriesButton;
+        originalCallback = button.ButtonPushedFcn;
+        axesToolbar = app.UIAxes.Toolbar;
+        toolbarVisibility = axesToolbar.Visible;
+        button.ButtonPushedFcn = @(src,event) show_filter_plot(...
+            src,event,originalCallback,panel,axesToolbar,toolbarVisibility);
+    else
+        plotTab = findobj(panel,'Type','uitab','Tag','RIFFBodeTab');
+        tabs = plotTab.Parent;
+        delete(plotTab.Children);
+    end
+    cla(app.UIAxes);
+    app.UIAxes.Visible = 'off';
+    app.UIAxes.Toolbar.Visible = 'off';
+    panel.Visible = 'on';
+    parameterTab = findobj(tabs,'Type','uitab','Tag','RIFFParametersTab');
+    if isempty(parameters)
+        delete(parameterTab);
+    else
+        if isempty(parameterTab)
+            parameterTab = uitab(tabs,'Title','Model parameters',...
+                'Tag','RIFFParametersTab');
+            layout = uigridlayout(parameterTab,[1 1]);
+            uitextarea(layout,'Editable','off','FontName','Monospaced',...
+                'Tag','RIFFParameterText');
+        end
+        parameterText = findobj(parameterTab,'Tag','RIFFParameterText');
+        parameterText.Value = parameters(:);
+    end
+end
 
+function show_filter_plot(src,event,originalCallback,panel,axesToolbar,toolbarVisibility)
+    if isgraphics(panel)
+        panel.Visible = 'off';
+    end
+    axesToolbar.Visible = toolbarVisibility;
+    originalCallback(src,event);
+end
 
+function clear_model_editor(app)
+    editor = getappdata(app.UIFigure,'RIFFModelEditor');
+    if isstruct(editor) && isfield(editor,'close')
+        editor.close();
+    elseif ~isempty(editor) && isvalid(editor)
+        delete(editor); % Dispose an editor from an older loaded session.
+    end
+    if isappdata(app.UIFigure,'RIFFModelEditor'), rmappdata(app.UIFigure,'RIFFModelEditor'); end
+end
 
+function model = riff_fit_aaa(frequencyHz,response,maxPoles,weight,enforceStability,backend)
+%RIFF_FIT_AAA Fit a continuous-time SISO response using AAA.
+% Frequencies are in Hz. SYSID uses the supplied frequency weights and a
+% direct AAA estimate (no nonlinear refinement). RF retains the legacy
+% rational fit with a deterministic default error metric; it ignores weight.
+% maxPoles is a cap, not an exact order or an independent zero-count limit.
+    if nargin < 6, backend = 'sysid'; end
+    backend = riff_aaa_backend(backend);
+    validateattributes(frequencyHz,{'numeric'},{'vector','real','finite','nonnegative'});
+    validateattributes(response,{'numeric'},{'vector','finite','numel',numel(frequencyHz)});
+    validateattributes(maxPoles,{'numeric'},{'scalar','integer','positive'});
+    validateattributes(weight,{'numeric'},{'vector','real','finite','nonnegative','numel',numel(response)});
+    frequencyHz = frequencyHz(:); response = response(:); weight = weight(:);
+    if ~any(weight > 0)
+        error('RIFF:AAAWeights','At least one AAA frequency weight must be positive.');
+    end
+    if strcmp(backend,'sysid')
+        data = idfrd(response,2*pi*frequencyHz,0);
+        options = ssestOptions('InitializeMethod','AAA','Focus','simulation',...
+            'InteractiveOrderSelection',false,'EstimateCovariance',false,...
+            'EnforceStability',logical(enforceStability),...
+            'WeightingFilter',weight,'Display','off');
+        options.SearchOptions.MaxIterations = 0;
+        model = ssest(data,maxPoles,'Ts',0,'Feedthrough',true,options);
+        % AAA can add a conjugate pair and return nx+1 states. Retry with a
+        % smaller limit rather than silently exceeding the requested cap.
+        if order(model) > maxPoles
+            model = ssest(data,maxPoles-1,'Ts',0,'Feedthrough',true,options);
+        end
+    else
+        fit = rational(frequencyHz,response,'MaxPoles',maxPoles,...
+            'ErrorMetric','default','QLimit',1e7);
+        [b,a] = residue(squeeze(fit.Residues),squeeze(fit.Poles),squeeze(fit.DirectTerm));
+        model = tf(real(b),real(a));
+    end
+    if order(model) > maxPoles
+        error('RIFF:AAAOrder','AAA returned more than the requested %d poles.',maxPoles);
+    end
+    if enforceStability && ~isstable(model)
+        error('RIFF:AAAStability','AAA could not produce a stable model.');
+    end
+end
 
+function backend = riff_aaa_backend(requested)
+%RIFF_AAA_BACKEND Resolve the AAA implementation before starting a fit.
+% The current release uses System Identification AAA by default. RF remains
+% an explicit option for comparisons; AUTO is retained as a SYSID alias.
+    if nargin == 0, requested = 'sysid'; end
+    backend = validatestring(requested,{'auto','sysid','rf'});
+    if strcmp(backend,'auto'), backend = 'sysid'; end
+    if strcmp(backend,'sysid')
+        if isMATLABReleaseOlderThan('R2026a')
+            error('RIFF:AAARelease','System Identification AAA requires MATLAB R2026a or newer.');
+        end
+        available = exist('ssest','file') == 2 && license('test','Identification_Toolbox');
+        product = 'System Identification Toolbox';
+    else
+        available = exist('rational','file') == 2 && license('test','RF_Toolbox');
+        product = 'RF Toolbox';
+    end
+    if ~available
+        error('RIFF:AAAToolbox','AAA backend "%s" requires %s.',backend,product);
+    end
+end
+
+function result = riff_verify_fit(app,result)
+%RIFF_VERIFY_FIT Display the selected trial, or the best fit at index zero.
+    variable = app.FIT_RESULT_VARIABLEEditField.Value;
+    if isvarname(variable) && evalin('base',sprintf('exist(''%s'',''var'')',variable))
+        result = evalin('base',variable);
+    end
+    if ~isstruct(result) || ~isfield(result,'FRD_Model') || ~isfield(result.FRD_Model,'modeled')
+        uialert(app.UIFigure,'Run a fit or enter a valid fit-result workspace variable.','No fit available');
+        return
+    end
+    count = 0;
+    if isfield(result,'intermediate'), count = numel(result.intermediate); end
+    index = app.IntermediateResultIDSpinner.Value;
+    if index < 0 || index > count || index ~= fix(index)
+        uialert(app.UIFigure,sprintf('Choose 0 for the best fit or a trial from 1 to %d.',count),'Invalid trial');
+        return
+    end
+    app.Lamp.Color = [1 0 0];
+    cleanup = onCleanup(@() set(app.Lamp,'Color',[0 1 0]));
+    result = fitTF('APP',app,'POST_PROCESS_RESULT_VARIABLE',result,...
+        'VIEW_INTERMEDIATE_BODEPLOT_TOGGLE',1,'POST_PROCESS_RESULT_INTERMEDIATE_ID',index);
+end
+
+function lines = riff_model_parameters(model,label)
+%RIFF_MODEL_PARAMETERS Describe the model actually shown in a response plot.
+    model = zpk(model);
+    [z,p,k] = zpkdata(model,'v');
+    lines = [string(label); "Zeros"; string(z(:)); "Poles"; string(p(:)); ...
+        "Gain"; string(k); "Delay"; string(totaldelay(model)); ...
+        "Time unit"; string(model.TimeUnit)];
+end
+
+function editor = create_model_editor(result,varargin)
+% One closure owns each editing session. GUI callbacks and command-line
+% operations share these models; no app or external editor class is required.
+    parser = inputParser;
+    addParameter(parser,'App',[]);
+    addParameter(parser,'Tabs',[]);
+    addParameter(parser,'Interactive',false,@(v)islogical(v) && isscalar(v));
+    addParameter(parser,'Visible','on',@(v)any(strcmp(v,{'on','off'})));
+    addParameter(parser,'EnforceStability',true,@(v)islogical(v) && isscalar(v));
+    addParameter(parser,'EnforceMinimumPhase',false,@(v)islogical(v) && isscalar(v));
+    parse(parser,varargin{:});
+    settings = parser.Results;
+    if ~isstruct(result) || ~isscalar(result) || ~isfield(result,'FRD_Model') || ...
+            ~isfield(result.FRD_Model,'modeled')
+        error('RIFF:InvalidFit','Supply a fitTF result containing FRD_Model.modeled.');
+    end
+    obj = struct();
+    obj.App = settings.App;
+    obj.OriginalFit = result;
+    obj.SelectedIndex = 0;
+    obj.EnforceStability = settings.EnforceStability;
+    obj.EnforceMinimumPhase = settings.EnforceMinimumPhase;
+    obj.Interactive = settings.Interactive || ~isempty(obj.App);
+    obj.Deleting = false;
+    obj.DragKind = ''; obj.DragIndex = 0;
+    obj.ExtraParameters = strings(0,1);
+    fields = {'Tab','PoleAxes','Chart','Selector','RootSelector','RealField',...
+        'ImagField','GainField','StableCheckBox','MinimumPhaseCheckBox','Status',...
+        'MainChart','MainResponse','MainTitle','ParameterText','PoleLine','ZeroLine',...
+        'DestroyListener','OldMotion','OldRelease','Figure','OwnedFigure'};
+    for setupIndex = 1:numel(fields), obj.(fields{setupIndex}) = []; end
+    obj.Entries = makeEntry(result.FRD_Model.modeled,'Best fit',0,result.FRD_Model.truncated);
+    if isfield(result,'intermediate')
+        for setupIndex = 1:numel(result.intermediate)
+            trial = result.intermediate(setupIndex);
+            measured = result.FRD_Model.truncated;
+            if isfield(trial.FRD_Model,'truncated_measurement')
+                measured = trial.FRD_Model.truncated_measurement;
+            end
+            obj.Entries(end+1) = makeEntry(trial.FRD_Model.modeled,...
+                sprintf('Trial %d',setupIndex),setupIndex,measured);
+        end
+    end
+    try
+        if obj.Interactive
+            tabs = settings.Tabs;
+            if isempty(obj.App)
+                obj.OwnedFigure = uifigure('Name','RIFF manual model adjustment',...
+                    'Position',[100 100 1150 720],'Visible','off');
+                obj.Figure = obj.OwnedFigure;
+                layout = uigridlayout(obj.Figure,[1 1],'Padding',[6 6 6 6]);
+                tabs = uitabgroup(layout);
+            else
+                obj.Figure = obj.App.UIFigure;
+                obj.EnforceStability = obj.App.ENFORCE_STABILITYCheckBox.Value;
+                obj.EnforceMinimumPhase = obj.App.ENFORCE_MINIMUM_PHASECheckBox.Value;
+            end
+            createUI(tabs);
+            obj.DestroyListener = addlistener(obj.Figure,'ObjectBeingDestroyed',@(~,~)close());
+            refresh(true);
+            if isgraphics(obj.OwnedFigure), obj.OwnedFigure.Visible = settings.Visible; end
+        end
+    catch failure
+        close();
+        rethrow(failure);
+    end
+    editor = struct('getModel',@currentModel,'getState',@getState,...
+        'selectFit',@selectFit,'moveRoot',@moveRoot,'setGain',@setGain,...
+        'setConstraints',@setConstraints,'resetFit',@resetFit,...
+        'exportFit',@exportFit,'exportWorkspace',@exportWorkspace,...
+        'saveToFile',@saveToFile,'close',@close,'isValid',@isValid,...
+        'matchesFit',@matchesFit,'bind',@bind,'OriginalFit',result);
+    % Controls are handles and remain live; changing model state is done only
+    % through the operations above. getModel/getState return fresh values.
+    controls = {'Tab','PoleAxes','Chart','Selector','RootSelector','RealField',...
+        'ImagField','GainField','StableCheckBox','MinimumPhaseCheckBox','Status','Figure'};
+    for setupIndex = 1:numel(controls), editor.(controls{setupIndex}) = obj.(controls{setupIndex}); end
+
+    function bind(chart,index,parameterText,extraParameters)
+        ensureOpen();
+        % Reattach after Verify rebuilds the main Bode chart.
+        stopDrag();
+        obj.MainChart = chart;
+        obj.MainResponse = [];
+        obj.MainTitle = chart.Title.String;
+        obj.ParameterText = parameterText;
+        obj.ExtraParameters = extraParameters;
+        obj.SelectedIndex = index;
+        obj.Selector.Value = index;
+        obj.App.IntermediateResultIDSpinner.Value = index;
+        refresh(true);
+    end
+
+    function same = matchesFit(result)
+        % fitTF adds the live app handle after drawing its final plot.
+        % That UI metadata does not identify a different fitted model.
+        original = obj.OriginalFit;
+        if isfield(original,'APP'), original = rmfield(original,'APP'); end
+        if isfield(result,'APP'), result = rmfield(result,'APP'); end
+        same = isequaln(original,result);
+    end
+
+    function selectFit(index)
+        ensureOpen();
+        validateattributes(index,{'numeric'},{'scalar','integer','>=',0,'<',numel(obj.Entries)});
+        stopDrag();
+        if ~isempty(obj.App)
+            fitTF('APP',obj.App,'POST_PROCESS_RESULT_VARIABLE',obj.OriginalFit,...
+                'VIEW_INTERMEDIATE_BODEPLOT_TOGGLE',1,'POST_PROCESS_RESULT_INTERMEDIATE_ID',index);
+        else
+            obj.SelectedIndex = index;
+            if isgraphics(obj.Selector), obj.Selector.Value = index; end
+            refresh(true);
+        end
+    end
+
+    function moveRoot(kind,index,value)
+        ensureOpen();
+        validateattributes(value,{'numeric'},{'scalar','finite'});
+        entry = obj.Entries(obj.SelectedIndex+1);
+        if strcmp(kind,'pole')
+            roots = entry.Edited.P{1}; pairs = entry.PolePairs;
+            constrained = obj.EnforceStability;
+            if isgraphics(obj.StableCheckBox), constrained = obj.StableCheckBox.Value; end
+        elseif strcmp(kind,'zero')
+            roots = entry.Edited.Z{1}; pairs = entry.ZeroPairs;
+            constrained = obj.EnforceMinimumPhase;
+            if isgraphics(obj.MinimumPhaseCheckBox), constrained = obj.MinimumPhaseCheckBox.Value; end
+        else
+            error('RIFF:RootKind','Choose a pole or zero.');
+        end
+        validateattributes(index,{'numeric'},{'scalar','integer','>=',1,'<=',numel(roots)});
+        partner = pairs(index);
+        if partner == index, value = real(value); end
+        if constrained
+            if entry.Edited.Ts == 0
+                value = complex(min(real(value),-1e-9),imag(value));
+            elseif abs(value) >= 1
+                value = value/abs(value)*(1-1e-9);
+            end
+        end
+        roots(index) = value;
+        if partner > 0 && partner ~= index, roots(partner) = conj(value); end
+        if strcmp(kind,'pole'), entry.Edited.P = {roots};
+        else, entry.Edited.Z = {roots}; end
+        obj.Entries(obj.SelectedIndex+1) = entry;
+        refresh(false);
+    end
+
+    function setGain(value)
+        ensureOpen();
+        validateattributes(value,{'numeric'},{'scalar','real','finite'});
+        obj.Entries(obj.SelectedIndex+1).Edited.K = value;
+        refresh(false);
+    end
+
+    function resetFit()
+        ensureOpen();
+        stopDrag();
+        slot = obj.SelectedIndex+1;
+        obj.Entries(slot).Edited = obj.Entries(slot).Original;
+        refresh(true);
+    end
+
+    function result = exportFit()
+        ensureOpen();
+        entry = obj.Entries(obj.SelectedIndex+1);
+        model = entry.Edited;
+        if isstruct(model.UserData)
+            stale = intersect(fieldnames(model.UserData),...
+                {'CovarianceMatrix','VALUE','sigmaCovMat','sigmaZ','sigmaP','sigmaK'});
+            model.UserData = rmfield(model.UserData,stale);
+        end
+        % Build a self-consistent result; do not copy obsolete optimizer
+        % rankings, reduced models, or parameter covariance into this fit.
+        result.FRD_Model.measured_original = obj.OriginalFit.FRD_Model.measured_original;
+        result.FRD_Model.measured_smoothed = obj.OriginalFit.FRD_Model.measured_smoothed;
+        result.FRD_Model.truncated = entry.Measured;
+        result.FRD_Model.modeled = model;
+        [result.ZPK.z,result.ZPK.p,result.ZPK.k] = zpkdata(model,'v');
+        result.ZPK.z_sigma = []; result.ZPK.p_sigma = []; result.ZPK.k_sigma = [];
+        result.ZPK.parameterCovarianceMatrix = [];
+        result.IODelay = totaldelay(model);
+        result.gof = score(entry);
+        result.frequency = obj.OriginalFit.frequency;
+        selectedFrequency = chgFreqUnit(entry.Measured,'Hz');
+        result.frequency.truncated = selectedFrequency.Frequency(:);
+        result.transferFunction.measured = result.FRD_Model.measured_original.ResponseData(:);
+        result.transferFunction.measured_smoothed = result.FRD_Model.measured_smoothed.ResponseData(:);
+        result.transferFunction.truncated = entry.Measured.ResponseData(:);
+        result.options.BodeOptions = obj.OriginalFit.options.BodeOptions;
+        result.manualAdjustment.Source = entry.Label;
+        result.manualAdjustment.TrialIndex = entry.TrialIndex;
+        result.manualAdjustment.OriginalModel = entry.Original;
+        result.manualAdjustment.Modified = ~isequal(entry.Original,entry.Edited);
+        result.manualAdjustment.Time = char(datetime('now'));
+    end
+
+    function name = exportWorkspace()
+        ensureOpen();
+        base = 'RIFF_MANUAL_FIT';
+        if ~isempty(obj.App), base = [obj.App.EXPORT_VARIABLE_NAMEEditField.Value,'_MANUAL']; end
+        if ~isvarname(base), base = 'RIFF_MANUAL_FIT'; end
+        name = base; suffix = 2;
+        while evalin('base',sprintf('exist(''%s'',''var'')',name))
+            name = sprintf('%s_%d',base,suffix); suffix = suffix+1;
+        end
+        assignin('base',name,exportFit());
+        if isgraphics(obj.Status), obj.Status.Text = ['Exported to workspace: ',name]; end
+    end
+
+    function saveToFile(file)
+        ensureOpen();
+        FIT = exportFit();
+        save(file,'FIT');
+    end
+
+    function createUI(tabs)
+        obj.Tab = uitab(tabs,'Title','Pole/zero editor','Tag','RIFFEditorTab');
+        grid = uigridlayout(obj.Tab,[1 2],'ColumnWidth',{'1x',280},'Padding',[4 4 4 4]);
+        host = uipanel(grid,'BorderType','none'); host.Layout.Column = 1;
+        options = obj.OriginalFit.options.BodeOptions;
+        options.Title.String = 'Manual adjustment';
+        options.Title.FontSize = 11; options.TickLabel.FontSize = 10;
+        options.XLabel.FontSize = 11; options.YLabel.FontSize = 11;
+        entry = obj.Entries(1);
+        obj.Chart = bodeplot(host,entry.Measured,entry.Original,'m--',entry.Edited,'g-',options);
+        legend(obj.Chart,{'Measurement','Original fit','Manual adjustment'},'Location','best');
+        for n = 1:numel(obj.Chart.Responses), obj.Chart.Responses(n).LineWidth = 1.5; end
+        side = uigridlayout(grid,[12 2],'ColumnWidth',{'1x','1x'},...
+            'RowHeight',{24,'1x',24,16,24,24,22,22,26,26,40,34},...
+            'Padding',[2 2 2 2],'RowSpacing',5);
+        side.Layout.Column = 2;
+        obj.Selector = uidropdown(side,'Items',{obj.Entries.Label},...
+            'ItemsData',[obj.Entries.TrialIndex],'Value',0,...
+            'ValueChangedFcn',@(src,~)selectFit(src.Value),'Tag','RIFFEditFit');
+        obj.Selector.Layout.Row = 1; obj.Selector.Layout.Column = [1 2];
+        obj.PoleAxes = uiaxes(side,'Tag','RIFFPoleZeroAxes');
+        obj.PoleAxes.Layout.Row = 2; obj.PoleAxes.Layout.Column = [1 2];
+        title(obj.PoleAxes,'Drag poles (×) or zeros (○)');
+        xlabel(obj.PoleAxes,'Real'); ylabel(obj.PoleAxes,'Imaginary');
+        gridOn = obj.PoleAxes; gridOn.XGrid = 'on'; gridOn.YGrid = 'on';
+        disableDefaultInteractivity(obj.PoleAxes);
+        obj.PoleAxes.Toolbar.Visible = 'off';
+        hold(obj.PoleAxes,'on');
+        xline(obj.PoleAxes,0,':','HitTest','off'); yline(obj.PoleAxes,0,':','HitTest','off');
+        if entry.Edited.Ts ~= 0
+            theta = linspace(0,2*pi,200);
+            plot(obj.PoleAxes,cos(theta),sin(theta),':','HitTest','off');
+        end
+        obj.PoleLine = plot(obj.PoleAxes,NaN,NaN,'x','MarkerSize',10,'LineWidth',2,...
+            'ButtonDownFcn',@(~,event)startDrag('pole',event));
+        obj.ZeroLine = plot(obj.PoleAxes,NaN,NaN,'o','MarkerSize',9,'LineWidth',2,...
+            'ButtonDownFcn',@(~,event)startDrag('zero',event));
+        obj.PoleAxes.ButtonDownFcn = @(~,event)startDrag('',event);
+        obj.RootSelector = uidropdown(side,'Items',{'No roots'},'ItemsData',0,...
+            'ValueChangedFcn',@(~,~)updateFields(),'Tag','RIFFEditRoot');
+        obj.RootSelector.Layout.Row = 3; obj.RootSelector.Layout.Column = [1 2];
+        label = uilabel(side,'Text','Real'); label.Layout.Row = 4;
+        label = uilabel(side,'Text','Imaginary'); label.Layout.Row = 4; label.Layout.Column = 2;
+        obj.RealField = uieditfield(side,'numeric','Tooltip','Real part of selected root',...
+            'ValueChangedFcn',@(~,~)numericRoot(),'Tag','RIFFRootReal');
+        obj.RealField.Layout.Row = 5;
+        obj.ImagField = uieditfield(side,'numeric','Tooltip','Imaginary part of selected root',...
+            'ValueChangedFcn',@(~,~)numericRoot(),'Tag','RIFFRootImag');
+        obj.ImagField.Layout.Row = 5; obj.ImagField.Layout.Column = 2;
+        label = uilabel(side,'Text','Gain'); label.Layout.Row = 6;
+        obj.GainField = uieditfield(side,'numeric','ValueChangedFcn',@(src,~)setGain(src.Value));
+        obj.GainField.Layout.Row = 6; obj.GainField.Layout.Column = 2;
+        obj.StableCheckBox = uicheckbox(side,'Text','Keep poles stable',...
+            'Value',obj.EnforceStability);
+        obj.StableCheckBox.Layout.Row = 7; obj.StableCheckBox.Layout.Column = [1 2];
+        obj.MinimumPhaseCheckBox = uicheckbox(side,'Text','Keep zeros minimum-phase',...
+            'Value',obj.EnforceMinimumPhase);
+        obj.MinimumPhaseCheckBox.Layout.Row = 8; obj.MinimumPhaseCheckBox.Layout.Column = [1 2];
+        button = uibutton(side,'Text','Zoom to root','ButtonPushedFcn',@(~,~)zoomToRoot());
+        button.Layout.Row = 9;
+        button = uibutton(side,'Text','Show all roots','ButtonPushedFcn',@(~,~)fitMap());
+        button.Layout.Row = 9; button.Layout.Column = 2;
+        button = uibutton(side,'Text','Reset this fit','ButtonPushedFcn',@(~,~)resetFit(),...
+            'Tag','RIFFResetModel'); button.Layout.Row = 10;
+        button = uibutton(side,'Text','Save MAT…','ButtonPushedFcn',@(~,~)saveDialog());
+        button.Layout.Row = 10; button.Layout.Column = 2;
+        obj.Status = uilabel(side,'WordWrap','on','FontSize',11,'Tag','RIFFEditStatus');
+        obj.Status.Layout.Row = 11; obj.Status.Layout.Column = [1 2];
+        button = uibutton(side,'Text','Export edited fit to workspace',...
+            'ButtonPushedFcn',@(~,~)exportWorkspace(),'Tag','RIFFExportModel');
+        button.Layout.Row = 12; button.Layout.Column = [1 2];
+    end
+
+    function refresh(resetView)
+        if isempty(obj.Tab) || ~isgraphics(obj.Tab), return; end
+        entry = obj.Entries(obj.SelectedIndex+1);
+        [z,p,k] = zpkdata(entry.Edited,'v');
+        obj.PoleLine.XData = real(p); obj.PoleLine.YData = imag(p);
+        obj.ZeroLine.XData = real(z); obj.ZeroLine.YData = imag(z);
+        if resetView
+            names = [compose('Pole %d',1:numel(p)),compose('Zero %d',1:numel(z))];
+            if isempty(names), names = "No roots"; ids = 0;
+            else, ids = 1:numel(names); end
+            obj.RootSelector.Items = cellstr(names);
+            obj.RootSelector.ItemsData = ids;
+            obj.RootSelector.Value = ids(1);
+            setResponse(obj.Chart.Responses(1),entry.Measured);
+            setResponse(obj.Chart.Responses(2),entry.Original);
+            obj.Chart.Title.String = [entry.Label,' — original and manual adjustment'];
+            fitMap();
+        end
+        obj.GainField.Value = real(k);
+        updateFields();
+        setResponse(obj.Chart.Responses(3),entry.Edited);
+        dirty = ~isequal(entry.Original,entry.Edited);
+        gof = score(entry);
+        state = 'Stable';
+        if ~isstable(entry.Edited), state = 'UNSTABLE'; end
+        obj.Status.Text = sprintf('%s | GOF %.2f%% | %s',entry.Label,gof,state);
+        obj.Status.FontColor = [0.2 0.7 0.4];
+        if ~isstable(entry.Edited), obj.Status.FontColor = [1 0.3 0.3]; end
+        label = entry.Label;
+        if dirty, label = [label,' — manual adjustment']; end
+        if isgraphics(obj.ParameterText)
+            obj.ParameterText.Value = [riff_model_parameters(entry.Edited,label);obj.ExtraParameters];
+        end
+        if ~isempty(obj.MainChart) && isvalid(obj.MainChart)
+            if dirty && isempty(obj.MainResponse)
+                addResponse(obj.MainChart,entry.Edited);
+                obj.MainResponse = obj.MainChart.Responses(end);
+                obj.MainResponse.Color = [0.2 0.8 0.4];
+                obj.MainResponse.LineWidth = 2;
+            end
+            if ~isempty(obj.MainResponse) && isvalid(obj.MainResponse)
+                setResponse(obj.MainResponse,entry.Edited);
+                obj.MainResponse.Name = sprintf('Manual adjustment (GOF %.2f%%)',gof);
+                obj.MainResponse.Visible = dirty;
+                if isprop(obj.MainResponse,'LegendDisplay'), obj.MainResponse.LegendDisplay = dirty; end
+            end
+            obj.MainChart.Title.String = obj.MainTitle;
+            if dirty
+                obj.MainChart.Title.String = sprintf('%s\nManual adjustment GOF: %.2f%%',...
+                    strjoin(string(obj.MainTitle),newline),gof);
+            end
+        end
+        drawnow limitrate nocallbacks;
+    end
+
+    function updateFields()
+        [kind,index] = selectedRoot();
+        enabled = index > 0;
+        obj.RealField.Enable = enabled; obj.ImagField.Enable = enabled;
+        if ~enabled, return; end
+        entry = obj.Entries(obj.SelectedIndex+1);
+        if strcmp(kind,'pole'), value = entry.Edited.P{1}(index); pairs = entry.PolePairs;
+        else, value = entry.Edited.Z{1}(index); pairs = entry.ZeroPairs; end
+        obj.RealField.Value = real(value); obj.ImagField.Value = imag(value);
+        obj.ImagField.Enable = pairs(index) ~= index;
+    end
+
+    function [kind,index] = selectedRoot()
+        model = currentModel();
+        count = numel(model.P{1});
+        index = obj.RootSelector.Value; kind = 'pole';
+        if index > count, kind = 'zero'; index = index-count; end
+    end
+
+    function numericRoot()
+        [kind,index] = selectedRoot();
+        if index > 0, moveRoot(kind,index,complex(obj.RealField.Value,obj.ImagField.Value)); end
+    end
+
+    function startDrag(kind,event)
+        if ~strcmp(obj.Figure.SelectionType,'normal'), return; end
+        point = obj.PoleAxes.CurrentPoint(1,1:2);
+        if isprop(event,'IntersectionPoint'), point = event.IntersectionPoint(1:2); end
+        model = currentModel();
+        values = [model.P{1};model.Z{1}];
+        ids = 1:numel(values);
+        count = numel(model.P{1});
+        if strcmp(kind,'pole'), ids = 1:count;
+        elseif strcmp(kind,'zero'), ids = count+(1:numel(model.Z{1})); end
+        if isempty(ids), return; end
+        distance = hypot((real(values(ids))-point(1))/diff(obj.PoleAxes.XLim),...
+            (imag(values(ids))-point(2))/diff(obj.PoleAxes.YLim));
+        [nearest,at] = min(distance);
+        if nearest > 0.08, return; end
+        obj.RootSelector.Value = ids(at);
+        [obj.DragKind,obj.DragIndex] = selectedRoot();
+        updateFields();
+        obj.OldMotion = obj.Figure.WindowButtonMotionFcn;
+        obj.OldRelease = obj.Figure.WindowButtonUpFcn;
+        obj.Figure.WindowButtonMotionFcn = @(~,~)dragRoot();
+        obj.Figure.WindowButtonUpFcn = @(~,~)stopDrag();
+    end
+
+    function dragRoot()
+        if obj.DragIndex == 0, return; end
+        point = obj.PoleAxes.CurrentPoint(1,1:2);
+        if all(isfinite(point))
+            moveRoot(obj.DragKind,obj.DragIndex,complex(point(1),point(2)));
+        end
+    end
+
+    function stopDrag()
+        if obj.DragIndex == 0, return; end
+        fig = obj.Figure;
+        if isgraphics(fig) && strcmp(fig.BeingDeleted,'off')
+            fig.WindowButtonMotionFcn = obj.OldMotion;
+            fig.WindowButtonUpFcn = obj.OldRelease;
+        end
+        obj.DragIndex = 0; obj.DragKind = '';
+    end
+
+    function fitMap()
+        model = currentModel();
+        values = [model.P{1};model.Z{1};0];
+        span = max([range(real(values)),range(imag(values)),1]);
+        obj.PoleAxes.XLim = [min(real(values))-0.15*span,max(real(values))+0.15*span];
+        obj.PoleAxes.YLim = [min(imag(values))-0.15*span,max(imag(values))+0.15*span];
+    end
+
+    function zoomToRoot()
+        model = currentModel();
+        [kind,index] = selectedRoot();
+        if index == 0, return; end
+        if strcmp(kind,'pole'), value = model.P{1}(index);
+        else, value = model.Z{1}(index); end
+        radius = max(abs(value)*0.4,0.1);
+        obj.PoleAxes.XLim = real(value)+[-radius radius];
+        obj.PoleAxes.YLim = imag(value)+[-radius radius];
+    end
+
+    function saveDialog()
+        [file,folder] = uiputfile('*.mat','Save manually adjusted fit','RIFF_manual_fit.mat');
+        if isequal(file,0), return; end
+        saveToFile(fullfile(folder,file));
+        obj.Status.Text = ['Saved: ',file];
+    end
+
+    function entry = makeEntry(model,label,index,measured)
+        entry.Original = zpk(model); entry.Edited = entry.Original;
+        entry.Label = label; entry.TrialIndex = index; entry.Measured = measured;
+        entry.PolePairs = pairRoots(entry.Original.P{1});
+        entry.ZeroPairs = pairRoots(entry.Original.Z{1});
+        [mag,phase,w] = bode(measured);
+        entry.Magnitude = mag(:); entry.Phase = phase(:); entry.Frequency = w;
+    end
+
+    function pairs = pairRoots(values)
+        pairs = zeros(size(values));
+        for n = 1:numel(values)
+            if pairs(n) ~= 0, continue; end
+            tolerance = 1e-7*max(1,abs(values(n)));
+            if abs(imag(values(n))) <= tolerance, pairs(n) = n; continue; end
+            candidate = find(abs(values-conj(values(n))) <= tolerance & pairs == 0);
+            candidate(candidate == n) = [];
+            if ~isempty(candidate), pairs(n) = candidate(1); pairs(candidate(1)) = n; end
+        end
+    end
+
+    function setResponse(response,model)
+        if isprop(response,'Model'), response.Model = model;
+        else, response.SourceData.Model = model; end
+    end
+
+    function gof = score(entry)
+        [mag,phase] = bode(entry.Edited,entry.Frequency);
+        observedMag = log10(max(entry.Magnitude,realmin));
+        observedPhase = wrapTo180(entry.Phase);
+        magDenom = norm(observedMag-mean(observedMag));
+        phaseDenom = norm(observedPhase-mean(observedPhase));
+        if magDenom == 0 || phaseDenom == 0, gof = NaN; return; end
+        gof = 100*(1-0.5*norm(observedMag-log10(max(mag(:),realmin)))/magDenom...
+            -0.5*norm(observedPhase-wrapTo180(phase(:)))/phaseDenom);
+    end
+
+    function model = currentModel()
+        ensureOpen();
+        model = obj.Entries(obj.SelectedIndex+1).Edited;
+    end
+
+    function close()
+        if obj.Deleting, return; end
+        obj.Deleting = true;
+        stopDrag();
+        if isgraphics(obj.Tab), delete(obj.Tab); end
+        if isgraphics(obj.OwnedFigure), delete(obj.OwnedFigure); end
+        if ~isempty(obj.DestroyListener), delete(obj.DestroyListener); end
+    end
+
+    function state = getState()
+        ensureOpen();
+        entry = obj.Entries(obj.SelectedIndex+1);
+        stable = obj.EnforceStability; minimumPhase = obj.EnforceMinimumPhase;
+        if isgraphics(obj.StableCheckBox), stable = obj.StableCheckBox.Value; end
+        if isgraphics(obj.MinimumPhaseCheckBox), minimumPhase = obj.MinimumPhaseCheckBox.Value; end
+        state = struct('SelectedIndex',obj.SelectedIndex,'Label',entry.Label,...
+            'CurrentModel',entry.Edited,'Modified',~isequal(entry.Original,entry.Edited),...
+            'GOF',score(entry),'EnforceStability',stable,'EnforceMinimumPhase',minimumPhase);
+    end
+
+    function setConstraints(stable,minimumPhase)
+        ensureOpen();
+        validateattributes(stable,{'logical','numeric'},{'scalar','binary'});
+        validateattributes(minimumPhase,{'logical','numeric'},{'scalar','binary'});
+        obj.EnforceStability = logical(stable);
+        obj.EnforceMinimumPhase = logical(minimumPhase);
+        if isgraphics(obj.StableCheckBox), obj.StableCheckBox.Value = stable; end
+        if isgraphics(obj.MinimumPhaseCheckBox), obj.MinimumPhaseCheckBox.Value = minimumPhase; end
+    end
+
+    function valid = isValid()
+        valid = ~obj.Deleting;
+        if obj.Interactive, valid = valid && isgraphics(obj.Tab); end
+    end
+
+    function ensureOpen()
+        if obj.Deleting, error('RIFF:EditorClosed','This editing session is closed.'); end
+    end
+
+end

@@ -7,6 +7,7 @@ classdef fitTFPlotTest < matlab.unittest.TestCase
     properties (TestParameter)
         previewVisible = struct('hidden',false,'visible',true)
         frequencyUnits = struct('hertz','Hz','radians','rad/s')
+        fittingRoutine = struct('invfreqs','invfreqsNode','aaa','AAANode')
     end
 
     methods (TestClassSetup)
@@ -53,7 +54,7 @@ classdef fitTFPlotTest < matlab.unittest.TestCase
 
             callback(testCase.App.PreviewBodeplotButton,[]);
 
-            testCase.verifyNotEmpty(findobj(testCase.App.UIAxes,'Type','image'));
+            testCase.verifyAppPlot();
             testCase.verifyEqual(testCase.App.Lamp.Color,[0 1 0],'AbsTol',eps);
             testCase.verifyEqual(imread('temp.png'),sentinel);
             testCase.verifyEqual(path,initialPath);
@@ -85,7 +86,7 @@ classdef fitTFPlotTest < matlab.unittest.TestCase
             fitTF('APP',testCase.App,'F',f,'TF',zeros(size(f)),...
                 'PREVIEW_BODEPLOT_TOGGLE',1);
 
-            testCase.verifyNotEmpty(findobj(testCase.App.UIAxes,'Type','image'));
+            testCase.verifyAppPlot();
             testCase.verifyNumElements(testCase.plotFigures(),1);
         end
 
@@ -138,7 +139,7 @@ classdef fitTFPlotTest < matlab.unittest.TestCase
             testCase.verifyNumElements(dir(fullfile('exported','*','FIT.mat')),1);
         end
 
-        function appFitCallbackAndExport(testCase)
+        function appFitCallbackAndExport(testCase,fittingRoutine)
             f = logspace(-1,1,80)';
             response = 1./(1 + 1i*2*pi*f);
             writematrix([f,real(response),imag(response)],...
@@ -146,7 +147,7 @@ classdef fitTFPlotTest < matlab.unittest.TestCase
             testCase.App.ChooseTFListBox.Items = ...
                 [testCase.App.ChooseTFListBox.Items,{'fit_response.txt'}];
             testCase.App.ChooseTFListBox.Value = 'fit_response.txt';
-            testCase.App.Tree.CheckedNodes = testCase.App.invfreqsNode;
+            testCase.App.Tree.CheckedNodes = testCase.App.(fittingRoutine);
             testCase.App.OPTIMIZERDropDown.Value = 'FMINCON';
             testCase.App.MIN_POLESEditField.Value = 1;
             testCase.App.MAX_POLESEditField.Value = 1;
@@ -160,8 +161,9 @@ classdef fitTFPlotTest < matlab.unittest.TestCase
 
             callback(testCase.App.FITButton,[]);
 
-            testCase.verifyNotEmpty(findobj(testCase.App.UIAxes,'Type','image'));
+            testCase.verifyAppPlot();
             testCase.verifyEqual(testCase.App.Lamp.Color,[0 1 0],'AbsTol',eps);
+            testCase.verifyNativeFigureCleanup();
             files = dir(fullfile('app_exported','*','bode_plot.fig'));
             testCase.assertNumElements(files,1);
             savedFigure = openfig(fullfile(files.folder,files.name),'invisible');
@@ -170,10 +172,165 @@ classdef fitTFPlotTest < matlab.unittest.TestCase
             testCase.verifyGreaterThan(savedData.FIT.gof,99);
             testCase.verifyEmpty(findall(savedFigure,'Type','uibutton'));
             testCase.verifyNotEmpty(findall(savedFigure,'Type','textboxshape'));
+            testCase.verifyFittedEditsSurviveVerification();
+        end
+    end
+
+    methods (Test,TestTags={'NativeCharts'})
+        function embeddedZoomAndRefresh(testCase)
+            testCase.assumeFalse(verLessThan('matlab','24.2'));
+            testCase.App.ChooseTFListBox.Value = 'damped_transmission.txt';
+            callback = testCase.App.PreviewBodeplotButton.ButtonPushedFcn;
+            callback(testCase.App.PreviewBodeplotButton,[]);
+            chart = testCase.embeddedChart();
+            initialResponses = chart.Responses;
+
+            setoptions(chart,'XLim',[1 2]);
+            drawnow;
+
+            testCase.verifyEqual(getoptions(chart,'XLim'),{[1 2]},'AbsTol',1e-10);
+            testCase.verifyEqual(chart.Responses,initialResponses);
+            testCase.verifyEqual(string(chart.ToolbarVisible),"on");
+            testCase.verifyEmpty(testCase.plotFigures());
+
+            testCase.App.F_FINALEditField.Value = 5;
+            callback(testCase.App.PreviewBodeplotButton,[]);
+
+            testCase.verifyFalse(isvalid(chart));
+            chart = testCase.embeddedChart();
+            testCase.verifyEqual(getoptions(chart,'XLim'),{[0.1 5]},'AbsTol',1e-10);
+            testCase.verifyEmpty(testCase.plotFigures());
+        end
+
+        function embeddedResize(testCase)
+            testCase.assumeFalse(verLessThan('matlab','24.2'));
+            testCase.App.ChooseTFListBox.Value = 'damped_transmission.txt';
+            testCase.App.UIFigure.Visible = 'on';
+            callback = testCase.App.PreviewBodeplotButton.ButtonPushedFcn;
+            callback(testCase.App.PreviewBodeplotButton,[]);
+            panel = findobj(testCase.App.RightPanel,'Tag','RIFFInteractivePlot');
+            testCase.verifyPlotFitsPanel(panel);
+
+            testCase.App.UIFigure.Position(3:4) = [1100 800];
+            drawnow;
+
+            testCase.verifyPlotFitsPanel(panel);
+            testCase.verifyAppPlot();
+
+            testCase.App.UIFigure.Position(3:4) = [500 800];
+            drawnow;
+
+            testCase.verifyThat(@() testCase.App.RightPanel.Layout.Row,...
+                matlab.unittest.constraints.Eventually(...
+                matlab.unittest.constraints.IsEqualTo(2),'WithTimeoutOf',10));
+            testCase.verifyPlotFitsPanel(panel);
+            testCase.verifyAppPlot();
+        end
+
+        function embeddedFitDetailsAndUncertainty(testCase)
+            testCase.assumeFalse(verLessThan('matlab','24.2'));
+            model = idtf(1,[1 1]);
+            model = setcov(model,1e-6*eye(numel(getpvec(model))));
+            saved = testCase.savedResult(model,model);
+
+            fitTF('APP',testCase.App,'POST_PROCESS_RESULT_VARIABLE',saved,...
+                'VIEW_INTERMEDIATE_BODEPLOT_TOGGLE',1);
+
+            chart = testCase.embeddedChart();
+            testCase.verifyNumElements(chart.Responses,5);
+            testCase.verifyEqual(chart.Responses(end).Name,"Parameter uncertainty samples");
+            details = findobj(testCase.App.RightPanel,'Tag','RIFFParameterText');
+            testCase.assertNumElements(details,1);
+            testCase.verifyTrue(any(contains(string(details.Value),'Delay')));
+            testCase.verifyEmpty(findall(testCase.App.UIFigure,'Type','textboxshape'));
+            testCase.verifyEmpty(testCase.plotFigures());
+        end
+
+        function filteringCanReplaceEmbeddedPlot(testCase)
+            testCase.assumeFalse(verLessThan('matlab','24.2'));
+            testCase.App.ChooseTFListBox.Value = 'damped_transmission.txt';
+            imageData = uint8(73*ones(3,3,3));
+            % Stand in for the image produced by the time-domain callback.
+            testCase.App.FilterTimeSeriesButton.ButtonPushedFcn = ...
+                @(~,~) imshow(imageData,'Parent',testCase.App.UIAxes);
+            preview = testCase.App.PreviewBodeplotButton.ButtonPushedFcn;
+            preview(testCase.App.PreviewBodeplotButton,[]);
+            panel = findobj(testCase.App.RightPanel,'Tag','RIFFInteractivePlot');
+            filter = testCase.App.FilterTimeSeriesButton.ButtonPushedFcn;
+
+            filter(testCase.App.FilterTimeSeriesButton,[]);
+
+            testCase.verifyEqual(string(panel.Visible),"off");
+            displayed = findobj(testCase.App.UIAxes,'Type','image');
+            testCase.verifyEqual(displayed.CData,imageData);
+
+            preview(testCase.App.PreviewBodeplotButton,[]);
+
+            testCase.verifyEqual(string(panel.Visible),"on");
+            testCase.verifyAppPlot();
+            testCase.verifyEmpty(testCase.plotFigures());
         end
     end
 
     methods (Access=private)
+        function verifyFittedEditsSurviveVerification(testCase)
+            if verLessThan('matlab','24.2'), return; end
+            editor = getappdata(testCase.App.UIFigure,'RIFFModelEditor');
+            testCase.assertClass(editor,'struct');
+            testCase.assertTrue(editor.isValid());
+            model = editor.getModel();
+            editor.setGain(model.K*1.1);
+            adjusted = editor.getModel();
+            testCase.App.FIT_RESULT_VARIABLEEditField.Value = 'RIFF_TEST_NO_WORKSPACE_EXPORT';
+            callback = testCase.App.IntermediateResultIDSpinner.ValueChangedFcn;
+            testCase.App.IntermediateResultIDSpinner.Value = 1;
+            callback(testCase.App.IntermediateResultIDSpinner,[]);
+            testCase.verifyEqual(getappdata(testCase.App.UIFigure,'RIFFModelEditor'),editor);
+            testCase.App.IntermediateResultIDSpinner.Value = 0;
+            callback(testCase.App.IntermediateResultIDSpinner,[]);
+            testCase.verifyEqual(editor.getModel(),adjusted);
+        end
+
+        function verifyPlotFitsPanel(testCase,panel)
+            testCase.verifyThat(@() testCase.plotFitsPanel(panel),...
+                matlab.unittest.constraints.Eventually(...
+                matlab.unittest.constraints.IsTrue,'WithTimeoutOf',10));
+        end
+
+        function fits = plotFitsPanel(testCase,panel)
+            bounds = getpixelposition(panel);
+            parentBounds = getpixelposition(testCase.App.RightPanel);
+            chart = testCase.embeddedChart();
+            tabBounds = getpixelposition(chart.Parent);
+            fits = all(bounds(3:4) > 0.8*parentBounds(3:4)) && ...
+                all(bounds(3:4) < parentBounds(3:4)) && ...
+                all(tabBounds(3:4) > 0.8*bounds(3:4));
+        end
+
+        function chart = embeddedChart(testCase)
+            plotTab = findobj(testCase.App.RightPanel,'Tag','RIFFBodeTab');
+            chart = findall(plotTab,'-isa','controllib.chart.BodePlot');
+            testCase.assertNumElements(chart,1);
+        end
+
+        function verifyNativeFigureCleanup(testCase)
+            if ~verLessThan('matlab','24.2')
+                testCase.verifyEmpty(testCase.plotFigures());
+            end
+        end
+
+        function verifyAppPlot(testCase)
+            if verLessThan('matlab','24.2')
+                testCase.verifyNotEmpty(findobj(testCase.App.UIAxes,'Type','image'));
+            else
+                plotTab = findobj(testCase.App.RightPanel,'Tag','RIFFBodeTab');
+                chart = findall(plotTab,'-isa','controllib.chart.BodePlot');
+                testCase.assertNumElements(chart,1);
+                testCase.verifyEmpty(findobj(testCase.App.UIAxes,'Type','image'));
+                testCase.verifyEqual(ancestor(chart,'figure'),testCase.App.UIFigure);
+            end
+        end
+
         function verifyResponseCurves(testCase,fig)
             if isa(fig.CurrentAxes,'controllib.chart.BodePlot')
                 testCase.verifyGreaterThanOrEqual(numel(fig.CurrentAxes.Responses),4);

@@ -3,3 +3,9 @@
 
 # Ignore files within the Saved_Models
 ./Saved_Models/*
+
+# Reproducible release outputs and local MATLAB/Simulink build products
+/release/
+/slprj/
+*.slxc
+*.asv

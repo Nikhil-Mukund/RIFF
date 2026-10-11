@@ -1,193 +1,295 @@
-# RIFF: Robust IIR Fitting & Filtering
+# RIFF v4.0: Robust IIR Fitting & Filtering
 
-- **Generate robust IIR Zero-Pole-Gain filter models to match the measured transfer functions.**
-            
-- **What's New!**
+Fit measured transfer functions with robust IIR zero-pole-gain models. RIFF combines
+instrument-data import, frequency weighting, model-order and algorithm selection,
+and fit verification in a guided MATLAB app. The same fitting engine is available
+from the command line through `fitTF.m`.
 
-      - Added support for AAA Algorithm for Rational Approximation
-      - Simplied SysID via guided workflow.
-      - Improved fitting algorithm 
-      - Option to generate MINIMUM_PHASE models without any right-half plane zeros.
-      - Option to account for input-output delays 
-      - One click install
+**v4.0.0 · MATLAB R2026b and newer.** Validated on R2026b.
+[R2023b users: download the previous v3.0 release.](https://github.com/Nikhil-Mukund/RIFF/releases/tag/v3.0)
 
-![Alt text](/tutorials/RIFF_ScreenShot.png)
+[Download the latest stable release](https://github.com/Nikhil-Mukund/RIFF/releases/latest)
+· [Release notes](release_notes.md) · [Command-line API](#command-line-fitting)
 
+## What's new
 
-- **Compatibility**
+- **SysID AAA and N4SID-initialized `tfest` are enabled by default.** RIFF compares
+  both candidates during optimization. AAA now uses System Identification Toolbox;
+  RF Toolbox is optional. The legacy RF AAA backend remains an explicit choice.
+- **Live Bode plots inside the app.** Zoom, pan, inspect data tips, and resize the
+  app without generating an image of an external figure. The separate figure
+  window is off by default and can be enabled when needed.
+- **One shared core.** Fitting, native plotting, Verify, parameter formatting,
+  and manual model refinement live inside `fitTF.m` for both app and script use.
+- **Optional pole/zero refinement after fitting.** Drag roots or enter precise
+  coordinates and gain, watch the response update, and reset each trial to its
+  fitted original. This complements RIFF's automatic fitting workflow.
+- **Reliable verification and export.** Model parameters follow the selected
+  intermediate fit. Manual edits have separate exports and do not overwrite the
+  optimizer's original results.
 
-            -   MATLAB R2023b+ (check older releases for older MATLAB R2022a+ versions)
-           
-- **Toolboxes Required**
-  
-            -   Control System Toolbox
-            -   System Identification Toolbox
-            -   Global Optimization Toolbox
-            -   Curve Fitting
-            -   RF Toolbox   (else unselect rationalfit & AAA)
-  
-- **Other Features**
+## Install and launch
 
-      - Uses the chosen optimizer to find the best parameters (see below) that maximizes the goodness of fit.
-                        - filter order
-                        - fitting algorithm
-                        - weighting filter 
-                        - Frequency limits
-                        
-      - System identification is done using 
-                        - Subspace identification (N4SID)
-                        - Vector fitting 
-                        - Complex-curve fitting algorithms
-                        - Adaptive Antoulas–Anderson (AAA) Algorithm (Y. Nakatsukasa, O. Sète, and L. N. Trefethen)
-  `
-                        
-      - Calculates the associated uncertainties & the full covariance matrix.
+1. Download **RIFF.mltbx** from the [latest release](https://github.com/Nikhil-Mukund/RIFF/releases/latest).
+2. Open it in MATLAB R2026b or newer and complete installation. The package
+   registers RIFF in the Apps gallery and puts `fitTF` on the MATLAB path.
+3. Launch RIFF from the **Apps** tab or enter `RIFF` in the Command Window.
 
-      
-      - Options to estimate the noise floor & dampen sharp resonances via smoothing the complex transfer function.
+The package uses MATLAB's current `.mltbx` format. The older `.mlappinstall`
+package remains available in the previous release for R2023b users.
 
-- **To Install** 
+Close existing RIFF windows when upgrading. Remove or disable older RIFF
+installations that precede the new one on your path, then run `clear fitTF RIFF`.
+Use `which RIFF -all` and `which fitTF -all` to check which installation runs.
+If MATLAB reports an older package with the same ID, uninstall that older add-on
+before installing v4.0, or use its documented version-replacement option:
 
-            - Click & install using the mlappinstall file 
+```matlab
+mpminstall('RIFF.mltbx',AllowVersionReplacement=true);
+```
 
-- **To Launch App** 
-              
-            - Launch from the Apps toolbar
-            - Or type RIFF from the command line
+Preserve custom INI files before replacing an installation. See
+[MathWorks package installation](https://www.mathworks.com/help/matlab/ref/mpminstall.html).
 
+RIFF reads and imports measurements into `measured_TFs` under MATLAB's **current
+folder**, and saves results under the configured output folder. Choose a writable
+working folder, then use the app's file-import controls to add your measurements.
+Bundled examples are also included in the source download and installer.
 
-## Run the updated source checkout
+### Required products
 
-Close any open RIFF app windows, then run these commands from the repository root:
+MATLAB R2026b+, Control System Toolbox, System Identification Toolbox,
+Optimization Toolbox, Global Optimization Toolbox, Signal Processing Toolbox,
+and Curve Fitting Toolbox cover the main app and fitting workflows.
+
+Optional dependencies depend on the selected workflow:
+
+- **RF Toolbox:** `rationalfit` or explicit `AAA_BACKEND='rf'` comparisons.
+- **BADS:** the Bayesian Adaptive Direct Search optimizer; see
+  [BADS](https://github.com/lacerbi/bads). RIFF's existing BADS path attempts to
+  download it if unavailable.
+- **LTPDA:** importing LTPDA Analysis Objects.
+
+### Run from a source checkout
+
+From the repository root:
 
 ```matlab
 addpath(fullfile(pwd,'src'),'-begin');
-clear fitTF
+clear fitTF RIFF
 RIFF
 ```
 
-`which RIFF -all` and `which fitTF -all` should list this checkout's `src` files first.
-The existing `.mlappinstall` file is a previously built package; source changes do
-not update that package automatically. Use the commands above to run these fixes.
+Keep the original `src/utils` folder with `fitTF.m`. It contains instrument
+import, configuration, and filtering utilities. All runtime helpers added in
+this release are local or nested functions inside `fitTF.m`; the app supplies
+its UI layout and callbacks. Build instructions are in [packaging](https://github.com/Nikhil-Mukund/RIFF/blob/v4.0/packaging/README.md).
 
-## Plotting regression tests
+## Fitting measurements
 
-From the repository root, with the app's required toolboxes installed:
+RIFF searches model order, fitting routine, frequency limits, and weighting to
+maximize its goodness-of-fit score. Available estimators are:
+
+| `ROUTINE` | Estimator | Default |
+|---|---|---|
+| 1 | RF vector fitting (`rationalfit`) | No |
+| 2 | Transfer-function estimation (`tfest`, initialized with N4SID) | Yes |
+| 3 | Complex frequency-response fitting (`invfreqs`) | No |
+| 4 | Magnitude fitting (`fitmagfrd`) | No |
+| 5 | Adaptive Antoulas–Anderson (`ssest`, SysID AAA) | Yes |
+
+AAA estimates a continuous-time model using the selected frequency weights,
+with no nonlinear refinement. The pole count is a maximum, not an exact order;
+RIFF handles conjugate-pair overshoot. AAA does not independently constrain the
+number of zeros. See the [MathWorks AAA guide](https://www.mathworks.com/help/ident/ug/estimate-siso-state-space-model-using-aaa-algorithm.html).
+
+A [120-estimate comparison on five bundled sweeps](benchmarks/AAA_COMPARISON.md)
+found that SysID AAA beat `tfest` on two sweeps and RF AAA on four under RIFF's
+score. Neither algorithm always wins, which is why both SysID candidates remain
+enabled. The report includes held-out scores, raw results, and limitations.
+
+RIFF also supports smoothing, noise-floor estimation, damping sharp resonances,
+stability constraints, minimum-phase models, input/output delay estimation, and
+opt-in parameter covariance. Some options select a compatible estimator:
+
+- Uncertainty estimation, explicit delay estimation, and allowing unstable
+  models select `tfest`.
+- Minimum-phase fitting selects `fitmagfrd`.
+- Uncertainty estimation is **off by default** in both the app and command line.
+
+### Input and output
+
+Inputs include frequency/complex-response vectors, FRD models, text/CSV files,
+HP/Agilent/Keysight SDF `.DAT` measurements, paired time series and sample rates,
+and LTPDA Analysis Objects. File formats can specify Hz (`f`) or rad/s (`w`),
+real/imaginary columns, or complex values; use `help fitTF` for the full syntax.
+
+The returned `FIT` structure contains the ZPK model, measured and modeled
+responses, GOF, intermediate fits, and optimization settings. Covariance fields
+are populated when requested and supported. Saved fits can include MAT, FIG,
+PNG, and LIGO FOTON-compatible second-order-section filter files.
+
+## Command-line fitting
 
 ```matlab
-results = runtests('tests/fitTFPlotTest.m');
+% Frequency in Hz; response is real + 1i*imaginary.
+FIT = fitTF('F',frequencyHz,'TF',complexResponse); % tfest/N4SID + SysID AAA
+
+% AAA only, without plots:
+FIT = fitTF('F',frequencyHz,'TF',complexResponse, ...
+    'ROUTINE',5,'PLOT_TOGGLE',0);
+
+% Equivalent FRD and measurement-file inputs:
+FIT = fitTF('FRD',frd(complexResponse,2*pi*frequencyHz),'ROUTINE',5);
+FIT = fitTF('FNAME','measurement.csv','FORMAT','f,a,b','ROUTINE',5);
+
+% Explicit comparison with the older RF backend (requires RF Toolbox):
+FIT_RF = fitTF('F',frequencyHz,'TF',complexResponse, ...
+    'ROUTINE',5,'AAA_BACKEND','rf');
+
+defaults = fitTF('defaults'); % Same defaults as the app
+```
+
+`AAA_BACKEND='sysid'` is the default; `auto` is an alias for `sysid`. Failed AAA
+candidates are penalized instead of replaced with a dummy model. Saved results
+identify the selected routines, winning routine, and AAA backend. Nonconsecutive
+routine selections such as `[2 5]` evaluate only those algorithms; `GUESS` and
+saved optimization results retain their public numerical routine IDs.
+
+Existing configuration files still apply when `READ_CONFIG` is enabled. Review
+custom `ROUTINE` and `ESTIMATE_UNCERTAINITY` values when upgrading; explicit
+settings can override the new defaults.
+
+## Bode plots and verification
+
+Previews and fitted responses are native interactive charts in the app. Hover
+over the chart to access zoom, pan, data tips, and restoring the view. A scrollable
+**Model parameters** tab shows roots, gain, and delay when `DISPLAY_ZPK` is enabled.
+
+Use **Verify → Intermediate Result ID** to select a trial (`0` = best fit).
+Both the plot and parameter display follow the selection. **Plot →
+FIG_HANDLE_VISIBILITY** is off by default; enable it for an additional figure.
+Saving still produces standalone FIG and PNG files. The existing time-domain
+filtering workflow retains its image display.
+
+```matlab
+fitTF('verify',FIT,1); % Display trial 1 from the command line
+parameters = fitTF('parameters',FIT.FRD_Model.modeled,'Best fit');
+```
+
+## Optional manual pole/zero refinement
+
+After fitting, open **Pole/zero editor** to make small final adjustments:
+
+- Drag a pole (×) or zero (○), or enter coordinates and gain numerically. The
+  Bode response and GOF update immediately. Complex-conjugate roots move together,
+  real roots remain real, and model delays are preserved.
+- Use **Zoom to root** for clustered roots and **Show all roots** to reset the map.
+- **Keep poles stable** and **Keep zeros minimum-phase** initially follow the
+  app's fitting controls and constrain subsequent moves.
+- Each best/intermediate fit has its own draft. **Reset this fit** restores only
+  that selected model. Starting a new fit or preview clears the drafts.
+- Export to a separate workspace variable or MAT file. Original results remain
+  unchanged; old covariance and optimizer rankings are omitted from edited fits.
+
+![RIFF pole/zero editor showing live Bode response updates alongside draggable poles and zeros](tutorials/RIFF_pole_zero_editor.png)
+
+*Pole/zero refinement during development; the screenshot retains the earlier
+panel version label. The released app displays the current release version.*
+
+The identical editor can be opened without launching the RIFF app:
+
+```matlab
+editor = fitTF('edit',FIT,'Interactive',true);
+```
+
+For scripts, use a session without graphics:
+
+```matlab
+editor = fitTF('edit',FIT);
+editor.selectFit(1);                 % 0 = best, 1..N = intermediate trial
+editor.moveRoot('pole',1,-0.6+2.5i); % Also accepts 'zero'
+editor.setGain(3);
+model = editor.getModel();
+state = editor.getState();           % Selected trial, modified flag, GOF
+FIT_manual = editor.exportFit();
+editor.saveToFile('manual.mat');      % Saves variable FIT
+editor.resetFit();
+editor.close();
+```
+
+Command-line constraint options default to `'EnforceStability',true` and
+`'EnforceMinimumPhase',false`; change them on creation or with
+`editor.setConstraints(stable,minimumPhase)`. `editor.exportWorkspace()` creates
+`RIFF_MANUAL_FIT`, adding a suffix when needed. Save the exported FIT structure
+for reuse, rather than the live editor's callbacks and UI handles. This editor
+adjusts fitted plant models; it does not perform closed-loop controller design.
+
+## Validation and development
+
+From the repository root on R2026b:
+
+```matlab
+results = run(testsuite('tests'));
 assertSuccess(results);
 ```
 
-The suite covers visible and embedded previews, Hz/rad/s limits, zero-magnitude
-measurements, intermediate comparisons, covariance samples, fitting a known
-response, and MAT/FIG/PNG exports through both the command line and app callback.
-All nine tests passed on MATLAB R2023b and R2026b on 11 October 2026.
-Tests create temporary working folders and restore the MATLAB path and warning
-state. They do not overwrite measurement files in the repository.
+Tests cover AAA through vectors/FRD/files, weighting, pole limits, routine
+selection, uncertainty, embedded and standalone plots, trial verification,
+mouse dragging, per-fit resets, exports, and fresh-app startup. Isolated-copy
+tests block the former helper files and GUI class to verify that `fitTF.m`
+contains the new core functionality. The optional RF comparison test requires
+RF Toolbox. See [release notes](release_notes.md) for the release validation.
 
-- **Input data format**
+The release build runs the suite before packaging. See [build instructions](https://github.com/Nikhil-Mukund/RIFF/blob/v4.0/packaging/README.md).
 
-      - Text-files (.txt,.csv) 
-                  - Valid formats: {f a b}, {w a b}, {f a ib}, {w a ib}, {f a+ib}, {w a+ib}
-                  
-      - Workspace Variables 
-                  - {Frequency,Complex TransferFunction}
-                  - {Frequency Response Data (FRD) Model}
-                  
-      - HP-Agilent-Keysight Spectrum Analyzer measurements
-                 - {SDF .DAT files}
-                 
-      - Input & Output time series and their sampling frequencies
-      
-      - LISA Technology Package Data Analysis (LTPDA) Analysis Object (AO)
+## Tutorials
 
-- **Output**
+These recordings use earlier releases; layouts and defaults differ from the
+current app, but the measurement and fitting workflows remain useful.
 
-         - FIT_RESULT Structure containing 
-                   - Identified ZPK with the associated uncertainties  (FIT_RESULT.ZPK)
-                   - Goodness of fit (FIT_RESULT.gof)
-                   - Full covariance matrix. (FIT_RESULT.ZPK.parameterCovarianceMatrix)
-                   - Results from the intermediate stages (FIT_RESULT.intermediate)
-                   - FRD model & filtered transfer functions
-                   - Optimization details (FIT_RESULT.options.Optimization)
-                   - LIGO FOTON Compatible Second-Order-Section filters (when saved to file)                   
+<details>
+<summary>Show tutorial recordings</summary>
 
+### Fit a text-file measurement
+![Fit a text measurement](tutorials/damped_transmission_FMINCON.gif)
 
+### Refine with Bayesian Adaptive Direct Search
+![BADS fitting](tutorials/damped_transmission_BADS.gif)
 
-- **For command-line use (+finer control)**
+### Account for input/output delay
+![Delay estimation](tutorials/SysID_with_IOdelay.gif)
 
-            - use fitTF.m
+### Combine SDF measurements and fit a minimum-phase model
+![SDF minimum-phase fitting](tutorials/Keysight_Multiple_SDF_Files_MinPhase.gif)
 
-            
-- **Developed to aid** 
+### Fit a higher-order response
+![Higher-order fitting](tutorials/Higher_Order_Fit.gif)
 
-      - Design of control & calibration filters at gravitational wave (GW) observatories.
-      
-      - Design of feedforward & feedback filters for platform stabilization & seismic noise isolation.
-      
-      - Time domain subtraction of the noise sources that linearly/bi-linearly couple to the GW strain data.
-      
-      
-- Related Publication <br /> &ensp;<br /> &ensp; **Bilinear noise subtraction at the GEO 600 observatory** <br /> &ensp; 
-   [*N. Mukund et al.*  &ensp; Phys. Rev. D 101 102006, May 2020](https://doi.org/10.1103/PhysRevD.101.102006)
-   
+### Fit workspace variables
+![Workspace fitting](tutorials/RIFF-tutorial-2.gif)
 
+### Filter time series
+![Time-series filtering](tutorials/RIFF-tutorial-4.gif)
 
-- **License**
+</details>
 
-     [RIFF](https://github.com/Nikhil-Mukund/RIFF) is released under the terms of the [GNU General Public License v3.0.](https://github.com/Nikhil-Mukund/RIFF/blob/main/LICENSE)
+## Background and acknowledgements
 
-# How to use RIFF WorkFlow
+RIFF was developed for control and calibration filters at gravitational-wave
+observatories, feedforward/feedback filters for seismic isolation, and removal
+of linearly or bilinearly coupled noise. Related publication:
+[N. Mukund et al., *Bilinear noise subtraction at the GEO 600 observatory*,
+Phys. Rev. D 101, 102006 (2020)](https://doi.org/10.1103/PhysRevD.101.102006).
 
-## Fit a text-file measurement 
-![Alt text](/tutorials/damped_transmission_FMINCON.gif)
+Acknowledgements: [Evgeny Pr's INI Config](https://www.mathworks.com/matlabcentral/fileexchange/24992-ini-config),
+[Acerbi and Ma's BADS](https://arxiv.org/abs/1705.04405),
+[LTPDA](https://www.lisamission.org/ltpda/), and
+[Justin Dinale's SDF Importer](https://www.mathworks.com/matlabcentral/fileexchange/67513-sdf-importer).
 
-## Improve Fit using Bayesian Adaptive Direct Search 
-![Alt text](/tutorials/damped_transmission_BADS.gif)
+Related tools: [Vectfit MATLAB](https://www.sintef.no/projectweb/vectfit/),
+[Vectfit Python](https://github.com/PhilReinhold/vectfit_python),
+[FDIDENT](https://www.mathworks.com/products/connections/product_detail/product_35570.html),
+and [IIRrational](https://lee-mcculler.docs.ligo.org/iirrational/).
 
-## Account for possible Input-Output Delay
-![Alt text](/tutorials/SysID_with_IOdelay.gif)
-
-
-## Fit Multiple HP/Agilent/Keysight Spectrum Analyzer Measurements (SDF .DAT Format)
-### Use a Minimim Phase Design
-![Alt text](/tutorials/Keysight_Multiple_SDF_Files_MinPhase.gif)
-
-## Implement Higher Order Fitting for systems with complex TFs
-![Alt text](/tutorials/Higher_Order_Fit.gif)
-
-## Fit workspace variables 
-### Note: tutorial was made using an older app version 
-![Alt text](/tutorials/RIFF-tutorial-2.gif)
-
-## Filter TimeSeries using the modeled the transfer function
-### Note: tutorial was made using an older app version 
-![Alt text](/tutorials/RIFF-tutorial-4.gif)
-
-
-
-
-- **Acknowledgements**
-
-     > Evgeny Pr (2021). [INI Config](https://www.mathworks.com/matlabcentral/fileexchange/24992-ini-config), MATLAB Central File Exchange. Retrieved February 12, 2021.
-     
-     > Acerbi, L. & Ma, W. J. (2017). [Practical Bayesian Optimization for Model Fitting with Bayesian Adaptive Direct Search](https://proceedings.neurips.cc/paper/2017/hash/df0aab058ce179e4f7ab135ed4e641a9-Abstract.html) In Advances in Neural Information Processing Systems 30, pages 1834-1844. [arXiv preprint](https://arxiv.org/abs/1705.04405)
-      
-    > Martin Hewitson et al. [LTPDA Toolbox V3.0.13](https://www.lisamission.org/ltpda/)
-    
-    > Justin Dinale (2021). [SDF Importer](https://www.mathworks.com/matlabcentral/fileexchange/67513-sdf-importer), MATLAB Central File Exchange. Retrieved February 12, 2021.
-    
-- **Notes**     
-
-     > To use the Bayesian Adaptive Direct Search (BADS) optimizer, install it from [BADS-GitHub](https://github.com/lacerbi/bads) and add the folder to MATLAB search path. The app will automatically try to install it from the web, if it's not available.
-     
-- **Alternatives**
-
-     > [Vectfit MATLAB](https://www.sintef.no/projectweb/vectfit/)
-     
-     > [Vectfit Python](https://github.com/PhilReinhold/vectfit_python)
-     
-     > [FDIDENT MATLAB](https://www.mathworks.com/products/connections/product_detail/product_35570.html)
-     
-     > [IIRrational Python](https://lee-mcculler.docs.ligo.org/iirrational/)
+RIFF is released under the [GNU General Public License v3.0](LICENSE).
